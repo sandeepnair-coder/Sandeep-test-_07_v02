@@ -868,6 +868,21 @@ footer{border-top:1px solid var(--border);padding:48px;display:flex;justify-cont
   </div>
 </div>
 
+<!-- ── BATTLE CARD LOADING OVERLAY ── -->
+<div class="loading-overlay" id="battleLoadingOverlay">
+  <div style="font-size:13px;letter-spacing:0.15em;text-transform:uppercase;color:var(--electric);font-weight:600;margin-bottom:8px;">Battle Card Engine</div>
+  <div class="loading-text">Building Playbook for <span id="battleAnalysingBrand">—</span></div>
+  <div class="loading-sub">Generating AI-powered competitive strategy</div>
+  <div class="loading-bar"><div class="loading-progress" id="battleLoadingProgress"></div></div>
+  <div class="loading-steps">
+    <div class="lstep active" id="bstep1"><div class="lstep-dot"></div>Identifying real competitors in category</div>
+    <div class="lstep" id="bstep2"><div class="lstep-dot"></div>Mapping untapped market opportunities</div>
+    <div class="lstep" id="bstep3"><div class="lstep-dot"></div>Generating AI campaign concepts</div>
+    <div class="lstep" id="bstep4"><div class="lstep-dot"></div>Building Ogilvy-style campaign strategy</div>
+    <div class="lstep" id="bstep5"><div class="lstep-dot"></div>Compiling competitive battle playbook</div>
+  </div>
+</div>
+
 <!-- ── DEMO MODAL ── -->
 <div class="modal-backdrop" id="demoModal">
   <div class="modal" id="demoModalInner">
@@ -2332,6 +2347,27 @@ function personalizeBattleCards() {
 
 // ── PAGE NAV ──
 function showPage(id) {
+  // Intercept battle card navigation — require analysis first, then generate with loader
+  if (id === 'battle') {
+    var bn = brandContext.name;
+    if (!bn || bn === 'Your Brand') {
+      showToast('info', 'Run analysis first', 'Please analyse a brand on the Creative Intel page before viewing Battle Cards.', 5000);
+      showPage('intel');
+      return;
+    }
+    // If battle card data already generated for this brand, just show the page
+    if (battleCardData && window._battleBrand === bn) {
+      _doShowPage('battle');
+      return;
+    }
+    // Otherwise trigger generation with loader
+    launchBattleCardGeneration(bn, brandContext.category, brandContext.segment);
+    return;
+  }
+  _doShowPage(id);
+}
+
+function _doShowPage(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-'+id).classList.add('active');
   window.scrollTo(0,0);
@@ -2589,8 +2625,7 @@ async function runAnalysis() {
     overlay.classList.remove('show');
     renderResults(brandName, category, segment, data);
 
-    // Generate battle card data with real AI analysis
-    generateBattleCardData(brandName, category, segment);
+    // Battle card data will be generated on-demand when user navigates to Battle Cards page
 
     // Reset button
     if (btn) btn.disabled = false;
