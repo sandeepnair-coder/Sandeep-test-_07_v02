@@ -2589,6 +2589,9 @@ async function runAnalysis() {
     overlay.classList.remove('show');
     renderResults(brandName, category, segment, data);
 
+    // Generate battle card data with real AI analysis
+    generateBattleCardData(brandName, category, segment);
+
     // Reset button
     if (btn) btn.disabled = false;
     if (btnText) btnText.textContent = 'Analyse My Brand';
@@ -2680,6 +2683,8 @@ function animVal(el, target) {
 }
 
 function renderResults(brandName, category, segment, data) {
+  // Store for battle card hero preview
+  window.lastAnalysisData = data;
   // Avatar + header
   document.getElementById('brandAvatar').textContent    = brandName.charAt(0).toUpperCase();
   document.getElementById('resultBrandName').textContent = brandName;
@@ -2777,7 +2782,9 @@ function renderResults(brandName, category, segment, data) {
   document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
   showToast('success', 'Analysis complete!', `${brandName}'s creative health check is ready.`);
 }
-
+</script>
+<script src="battle-cards.js"></script>
+<script>
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && document.getElementById('page-intel').classList.contains('active') && document.activeElement.tagName === 'INPUT') runAnalysis();
 });
