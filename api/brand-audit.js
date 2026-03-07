@@ -27,6 +27,9 @@ module.exports = async function handler(req, res) {
     const system = systemPrompt || buildSystemPrompt();
     const user = userPrompt || buildUserPrompt(brandName, category, segment, urls);
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 55000); // 55s safety margin
+
     const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -39,12 +42,15 @@ module.exports = async function handler(req, res) {
         max_tokens: 3000,
         system: system,
         messages: [{ role: 'user', content: user }]
-      })
+      }),
+      signal: controller.signal
     });
+
+    clearTimeout(timeout);
 
     if (!anthropicRes.ok) {
       const errBody = await anthropicRes.json().catch(() => ({}));
-      console.error('Anthropic API error:', anthropicRes.status, errBody);
+      console.error('Anthropic API error:', anthropicRes.status, JSON.stringify(errBody));
       return res.status(anthropicRes.status).json({
         error: errBody.error?.message || `Anthropic API error: ${anthropicRes.status}`
       });
@@ -71,7 +77,10 @@ module.exports = async function handler(req, res) {
     });
 
   } catch (err) {
-    console.error('Serverless function error:', err);
+    console.error('Serverless function error:', err.name, err.message);
+    if (err.name === 'AbortError') {
+      return res.status(504).json({ error: 'Request to Anthropic API timed out. Please try again.' });
+    }
     return res.status(500).json({ error: err.message || 'Internal server error' });
   }
 }

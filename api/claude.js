@@ -18,6 +18,9 @@ module.exports = async function handler(req, res) {
   try {
     const { model, max_tokens, system, messages } = req.body;
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 55000);
+
     const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -30,11 +33,15 @@ module.exports = async function handler(req, res) {
         max_tokens: max_tokens || 2000,
         system: system || '',
         messages: messages || []
-      })
+      }),
+      signal: controller.signal
     });
+
+    clearTimeout(timeout);
 
     if (!anthropicRes.ok) {
       const errBody = await anthropicRes.json().catch(() => ({}));
+      console.error('Claude proxy error:', anthropicRes.status, JSON.stringify(errBody));
       return res.status(anthropicRes.status).json(errBody);
     }
 
@@ -42,7 +49,10 @@ module.exports = async function handler(req, res) {
     return res.status(200).json(data);
 
   } catch (err) {
-    console.error('Claude proxy error:', err);
+    console.error('Claude proxy error:', err.name, err.message);
+    if (err.name === 'AbortError') {
+      return res.status(504).json({ error: 'Request to Anthropic API timed out. Please try again.' });
+    }
     return res.status(500).json({ error: err.message });
   }
 }

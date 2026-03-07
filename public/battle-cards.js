@@ -1,0 +1,319 @@
+// ══════════════════════════════════════════════════════════
+// BATTLE CARD — DYNAMIC AI GENERATION
+// Generates real competitor, market, concept & strategy data
+// for the analysed brand instead of hardcoded Bewakoof data
+// ══════════════════════════════════════════════════════════
+
+var battleCardData = null;
+
+var BATTLE_ICONS = {
+  map: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>',
+  phone: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>',
+  calendar: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+  generic: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>',
+  star: '<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" stroke-linecap="round"><polygon points="12,2 15,9 22,9 16.5,14 18.5,21 12,17 5.5,21 7.5,14 2,9 9,9"/></svg>',
+  pitfall: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+};
+
+var BATTLE_CARD_PROMPT = "You are an expert Indian D2C brand creative strategist and competitive intelligence analyst. Generate a complete battle card analysis for the given brand. Respond ONLY with valid JSON, no markdown, no backticks, no explanation outside JSON.\n\nJSON structure:\n{\n  \"competitors\": [\n    {\"name\":\"REAL competitor brand in India\",\"desc\":\"short category descriptor\",\"badge\":\"Category Leader|Fast Mover|Rising Fast|Market Leader|High Spend\",\"badgeClass\":\"leader|rising|rising|leader|rising\",\"posts\":\"NN posts\",\"postsClass\":\"good|neutral|bad\",\"er\":\"N.N%\",\"erClass\":\"good|neutral|bad\",\"mix\":\"NN% Reels / NN% Static\",\"mixClass\":\"good|neutral|bad\",\"festivals\":\"NN regional\",\"festivalsClass\":\"good|neutral|bad\",\"ai\":\"~NN% est.\",\"aiClass\":\"good|neutral|bad\",\"gap\":\"gap vs your brand\",\"gapClass\":\"bad|neutral\"}\n  ],\n  \"yourBrand\":{\"desc\":\"short descriptor\",\"posts\":\"NN posts\",\"er\":\"N.N%\",\"mix\":\"NN% Reels / NN% Static\",\"festivals\":\"NN regional\",\"ai\":\"~NN% est.\",\"potential\":\"NN+ posts/mo and target ER\"},\n  \"markets\":[{\"title\":\"Festival/Region\",\"desc\":\"Market data with numbers\",\"opp\":\"revenue estimate\"}],\n  \"platforms\":[{\"rank\":1,\"title\":\"Platform\",\"desc\":\"Opportunity data\",\"opp\":\"PRIORITY and metric\"}],\n  \"seasonal\":[{\"title\":\"Campaign (Month)\",\"desc\":\"Market size data\",\"opp\":\"revenue and window\"}],\n  \"trends\":[{\"tag\":\"rising|emerging|urgent\",\"title\":\"Trend\",\"stat\":\"+NNN%\",\"statLabel\":\"measure\",\"desc\":\"2-3 sentences\",\"action\":\"action with cost\"}],\n  \"concepts\":[{\"title\":\"Campaign Name\",\"subtitle\":\"BRAND x THEME\",\"desc\":\"2-3 sentences\",\"tags\":[\"Platform\",\"Timing\",\"Audience\",\"Theme\"]}],\n  \"strategy\":{\n    \"categoryLabel\":\"Category\",\n    \"slogan\":\"Brand slogan\",\"sloganTranslation\":\"English if not English else empty\",\"sloganExplain\":\"2-3 sentences on philosophy\",\n    \"productTruth\":\"One sentence\",\"humanEmotion\":\"One sentence\",\n    \"themes\":[{\"name\":\"Theme\",\"sub\":\"Subtitle\",\"desc\":\"3-4 sentences\"}],\n    \"stories\":[{\"themeTag\":\"Theme 01: Name\",\"title\":\"Title\",\"acts\":[{\"label\":\"Act 1 . 0-7s\",\"desc\":\"Scene\"},{\"label\":\"Act 2 . 8-22s\",\"desc\":\"Scene\"},{\"label\":\"Act 3 . 23-30s\",\"desc\":\"Scene\"}]}],\n    \"pitfalls\":[\"<strong>Bold title.</strong> Explanation.\"]\n  }\n}\n\nRules:\n- competitors: exactly 5 REAL brands competing in same category in India\n- markets: exactly 4 regional/festival opportunities for this category\n- platforms: exactly 4 ranked by priority\n- seasonal: exactly 4 seasonal windows\n- trends: exactly 4 micro-trends for this category\n- concepts: exactly 3 campaign ideas\n- themes: exactly 4 campaign themes\n- stories: exactly 3 filmable story plots\n- pitfalls: exactly 4 pitfalls\n- All data specific to Indian market with real numbers";
+
+function escBattle(s) {
+  if (!s) return '';
+  var d = document.createElement('div');
+  d.textContent = String(s);
+  return d.innerHTML;
+}
+
+async function generateBattleCardData(brandName, category, segment) {
+  var userPrompt = 'Brand: ' + brandName + '\nCategory: ' + category + '\nMarket Segment: ' + segment + '\n\nGenerate a complete, realistic battle card analysis. All competitors must be REAL brands competing in this exact category in India. All market data, campaign concepts, and strategy must be specific to this brand\'s actual category.';
+
+  try {
+    var rawText = await callClaude(BATTLE_CARD_PROMPT, userPrompt, 4096);
+    var cleaned = rawText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+    battleCardData = JSON.parse(cleaned);
+    renderBattleCards(battleCardData, brandName, category);
+    showToast('success', 'Battle Cards ready!', brandName + ' competitive playbook generated by AI.');
+  } catch(err) {
+    console.warn('Battle card generation error:', err.message);
+    personalizeBattleCards();
+  }
+}
+
+function renderCompetitorTab(data, brandName) {
+  var compGrid = document.querySelector('#tab-competitor .comp-grid');
+  if (!compGrid || !data.competitors) return;
+  var html = '';
+  data.competitors.forEach(function(c) {
+    html += '<div class="comp-card">' +
+      '<div class="comp-header"><div><div class="comp-name">' + escBattle(c.name) + '</div>' +
+      '<div style="font-size:12px;color:var(--mid);margin-top:8px">' + escBattle(c.desc) + '</div></div>' +
+      '<div class="comp-badge ' + escBattle(c.badgeClass) + '">' + escBattle(c.badge) + '</div></div>' +
+      '<div class="comp-metric"><span class="key">Posts/Month</span><span class="val ' + escBattle(c.postsClass) + '">' + escBattle(c.posts) + '</span></div>' +
+      '<div class="comp-metric"><span class="key">Avg. Engagement Rate</span><span class="val ' + escBattle(c.erClass) + '">' + escBattle(c.er) + '</span></div>' +
+      '<div class="comp-metric"><span class="key">Creative Mix</span><span class="val ' + escBattle(c.mixClass) + '">' + escBattle(c.mix) + '</span></div>' +
+      '<div class="comp-metric"><span class="key">Festival Campaigns 2025</span><span class="val ' + escBattle(c.festivalsClass) + '">' + escBattle(c.festivals) + '</span></div>' +
+      '<div class="comp-metric"><span class="key">AI Adoption</span><span class="val ' + escBattle(c.aiClass) + '">' + escBattle(c.ai) + '</span></div>' +
+      '<div class="comp-metric"><span class="key">Your Gap</span><span class="val ' + escBattle(c.gapClass) + '">' + escBattle(c.gap) + '</span></div>' +
+    '</div>';
+  });
+  if (data.yourBrand) {
+    var yb = data.yourBrand;
+    html += '<div class="comp-card" style="border-color:rgba(0,229,192,0.2);background:rgba(0,229,192,0.03)">' +
+      '<div class="comp-header"><div><div class="comp-name" style="color:var(--electric)">' + escBattle(brandName) + ' (Your Brand)</div>' +
+      '<div style="font-size:12px;color:var(--mid);margin-top:8px">' + escBattle(yb.desc) + '</div></div>' +
+      '<div class="comp-badge lagging">Needs Acceleration</div></div>' +
+      '<div class="comp-metric"><span class="key">Posts/Month</span><span class="val bad">' + escBattle(yb.posts) + '</span></div>' +
+      '<div class="comp-metric"><span class="key">Avg. Engagement Rate</span><span class="val bad">' + escBattle(yb.er) + '</span></div>' +
+      '<div class="comp-metric"><span class="key">Creative Mix</span><span class="val bad">' + escBattle(yb.mix) + '</span></div>' +
+      '<div class="comp-metric"><span class="key">Festival Campaigns 2025</span><span class="val bad">' + escBattle(yb.festivals) + '</span></div>' +
+      '<div class="comp-metric"><span class="key">AI Adoption</span><span class="val bad">' + escBattle(yb.ai) + '</span></div>' +
+      '<div class="comp-metric"><span class="key">Fynd Studio Potential</span><span class="val good">' + escBattle(yb.potential) + '</span></div>' +
+    '</div>';
+  }
+  compGrid.innerHTML = html;
+}
+
+function renderMarketTab(data, brandName) {
+  var marketTab = document.getElementById('tab-market');
+  if (!marketTab || !data.markets) return;
+
+  var mHtml = '<div class="market-capture-grid">';
+
+  // Regional Markets
+  mHtml += '<div class="mc-card"><div class="mc-label">' + BATTLE_ICONS.map + ' Untapped Regional Markets</div>';
+  (data.markets || []).forEach(function(m) {
+    mHtml += '<div class="mc-item"><div class="mc-icon">' + BATTLE_ICONS.generic + '</div>' +
+      '<div class="mc-text"><div class="mc-title">' + escBattle(m.title) + '</div>' +
+      '<div class="mc-sub">' + escBattle(m.desc) + '</div>' +
+      '<div class="mc-opp">' + escBattle(m.opp) + '</div></div></div>';
+  });
+  mHtml += '</div>';
+
+  // Platform Priorities
+  mHtml += '<div class="mc-card"><div class="mc-label">' + BATTLE_ICONS.phone + ' Platform Priority Ranking</div>';
+  var platColors = [
+    'background:var(--electric-dim);color:var(--electric)',
+    'background:rgba(124,58,237,0.1);color:var(--signal)',
+    'background:var(--signal-dim);color:var(--signal)',
+    'background:rgba(255,255,255,0.06);color:var(--mid)'
+  ];
+  (data.platforms || []).forEach(function(p, i) {
+    mHtml += '<div class="mc-item"><div class="mc-icon" style="' + (platColors[i] || platColors[3]) + '">' + p.rank + '</div>' +
+      '<div class="mc-text"><div class="mc-title">' + escBattle(p.title) + '</div>' +
+      '<div class="mc-sub">' + escBattle(p.desc) + '</div>' +
+      '<div class="mc-opp">' + escBattle(p.opp) + '</div></div></div>';
+  });
+  mHtml += '</div>';
+
+  // Seasonal Campaigns
+  mHtml += '<div class="mc-card"><div class="mc-label">' + BATTLE_ICONS.calendar + ' Seasonal Campaign Calendar</div>';
+  (data.seasonal || []).forEach(function(s) {
+    mHtml += '<div class="mc-item"><div class="mc-icon">' + BATTLE_ICONS.calendar + '</div>' +
+      '<div class="mc-text"><div class="mc-title">' + escBattle(s.title) + '</div>' +
+      '<div class="mc-sub">' + escBattle(s.desc) + '</div>' +
+      '<div class="mc-opp">' + escBattle(s.opp) + '</div></div></div>';
+  });
+  mHtml += '</div></div>';
+
+  // Micro-trends
+  if (data.trends && data.trends.length) {
+    mHtml += '<div style="margin-top:8px">';
+    mHtml += '<div style="padding:32px 32px 24px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-bottom:none">';
+    mHtml += '<div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--signal);font-weight:600;margin-bottom:8px">Emerging Micro-Trends</div>';
+    mHtml += '<div style="font-size:16px;color:var(--mid)">Category-specific signals for ' + escBattle(brandName) + '. Act within 60 days or pay 3\u00d7 more to enter later.</div></div>';
+    mHtml += '<div class="micro-trend-grid">';
+    var tagHtml = {
+      rising: '<div class="mt-tag rising">\u2191 Rising Fast</div>',
+      emerging: '<div class="mt-tag emerging">\u25c6 Emerging</div>',
+      urgent: '<div class="mt-tag urgent"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;border:2px solid var(--signal);flex-shrink:0"></span> Act Now</div>'
+    };
+    data.trends.forEach(function(t) {
+      mHtml += '<div class="mt-card">' + (tagHtml[t.tag] || tagHtml.emerging) +
+        '<div class="mt-title">' + escBattle(t.title) + '</div>' +
+        '<div class="mt-stat">' + escBattle(t.stat) + '</div>' +
+        '<div style="font-size:11px;color:var(--mid);margin-bottom:8px">' + escBattle(t.statLabel) + '</div>' +
+        '<div class="spark-chart">' +
+          '<div class="spark-bar" style="height:20%"></div><div class="spark-bar" style="height:35%"></div>' +
+          '<div class="spark-bar" style="height:50%"></div><div class="spark-bar" style="height:65%"></div>' +
+          '<div class="spark-bar" style="height:75%"></div><div class="spark-bar" style="height:85%"></div>' +
+          '<div class="spark-bar" style="height:93%"></div><div class="spark-bar peak" style="height:100%"></div>' +
+        '</div>' +
+        '<div class="mt-desc" style="margin-top:16px">' + escBattle(t.desc) + '</div>' +
+        '<div class="mt-action">\u2192 <span>' + escBattle(t.action) + '</span></div></div>';
+    });
+    mHtml += '</div></div>';
+  }
+  marketTab.innerHTML = mHtml;
+}
+
+function renderConceptsTab(data, brandName) {
+  var conceptsTab = document.getElementById('tab-concepts');
+  if (!conceptsTab || !data.concepts) return;
+
+  var cHtml = '<div style="margin-bottom:24px;font-size:14px;color:var(--mid)">AI-generated campaign concepts for <strong style="color:var(--paper)">' + escBattle(brandName) + '</strong> \u2014 tailored to your brand DNA and identified market gaps.</div>';
+  cHtml += '<div class="concepts-grid">';
+  var defaultGrads = [
+    'linear-gradient(135deg,#0a0a0a,#7C3AED)',
+    'linear-gradient(135deg,#000000,#00FFC2)',
+    'linear-gradient(135deg,#000000,#7C3AED)'
+  ];
+  data.concepts.forEach(function(c, i) {
+    var grad = c.gradient || defaultGrads[i % 3];
+    cHtml += '<div class="concept-card">' +
+      '<div class="concept-preview" style="background:' + grad + '">' +
+        '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px">' +
+          '<div style="font-size:64px">' + BATTLE_ICONS.star + '</div>' +
+          '<div style="font-family:\'Inter\',sans-serif;font-size:22px;font-weight:800;color:white;text-shadow:0 2px 20px rgba(0,0,0,0.8);text-align:center;padding:0 16px">' + escBattle(c.title).toUpperCase() + '</div>' +
+          '<div style="font-size:8px;color:rgba(255,255,255,0.6);letter-spacing:0.15em">' + escBattle(c.subtitle) + '</div>' +
+        '</div>' +
+        '<div class="concept-ai-badge">AI Generated</div>' +
+      '</div>' +
+      '<div class="concept-body">' +
+        '<div class="concept-title">' + escBattle(c.title) + '</div>' +
+        '<div class="concept-desc">' + escBattle(c.desc) + '</div>' +
+        '<div class="concept-tags">';
+    (c.tags || []).forEach(function(tag) {
+      cHtml += '<span class="ctag">' + escBattle(tag) + '</span>';
+    });
+    cHtml += '</div></div></div>';
+  });
+  cHtml += '</div>';
+  conceptsTab.innerHTML = cHtml;
+}
+
+function renderStrategyTab(data, brandName, category) {
+  var stratContent = document.getElementById('strategyContent');
+  if (!stratContent || !data.strategy) return;
+
+  var s = data.strategy;
+  var sHtml = '<div class="ogilvy-container">';
+
+  // Header
+  sHtml += '<div style="margin-bottom:32px">' +
+    '<div style="font-size:8px;letter-spacing:0.14em;text-transform:uppercase;color:var(--signal);font-weight:700;margin-bottom:8px">Ogilvy India Formula \u00b7 ' + escBattle(brandName) + ' \u00b7 ' + escBattle(s.categoryLabel || category) + '</div>' +
+    '<div style="font-family:\'Inter\',sans-serif;font-size:24px;font-weight:800;letter-spacing:-0.01em;margin-bottom:8px">AI Campaign Strategy</div>' +
+    '<div style="font-size:16px;color:var(--mid);line-height:1.6">Applies the Piyush Pandey\u2013Ogilvy India method \u2014 ONE product truth, a two-level slogan, 3-act story plots, and campaign themes built to run for 10+ years.</div></div>';
+
+  // Slogan
+  sHtml += '<div class="strategy-block"><div class="strategy-block-title">The Slogan</div>' +
+    '<div class="slogan-box"><div class="slogan-text">\u201c' + escBattle(s.slogan) + '\u201d</div>';
+  if (s.sloganTranslation) {
+    sHtml += '<div class="slogan-translation" style="color:var(--electric)">\u201c' + escBattle(s.sloganTranslation) + '\u201d</div>';
+  }
+  sHtml += '<div class="slogan-explain">' + escBattle(s.sloganExplain) + '</div></div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px">' +
+      '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:8px;padding:24px">' +
+        '<div style="font-size:8px;letter-spacing:0.1em;text-transform:uppercase;color:var(--mid);margin-bottom:8px">Product Truth</div>' +
+        '<div style="font-size:16px;font-weight:500;color:var(--paper)">' + escBattle(s.productTruth) + '</div></div>' +
+      '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:8px;padding:24px">' +
+        '<div style="font-size:8px;letter-spacing:0.1em;text-transform:uppercase;color:var(--mid);margin-bottom:8px">Human Emotion</div>' +
+        '<div style="font-size:16px;font-weight:500;color:var(--electric)">' + escBattle(s.humanEmotion) + '</div></div>' +
+    '</div></div>';
+
+  // Three-Act Formula
+  sHtml += '<div class="strategy-block" style="margin-top:8px">' +
+    '<div class="strategy-block-title">The Three-Act Formula</div>' +
+    '<p style="font-size:16px;color:var(--mid);margin-bottom:24px;line-height:1.6">The product is never the hero. The <em style="color:var(--paper)">situation</em> is the hero. The product is the punchline.</p>' +
+    '<table class="three-act-table"><thead><tr><th>Act</th><th>Duration</th><th>Purpose &amp; Approach</th><th>Brain Chemistry</th></tr></thead><tbody>' +
+      '<tr><td><strong>01</strong></td><td>0\u20137s</td><td>Set up a recognisable social situation. No brand. No product. Just a truth that makes the viewer say \u201cthat\u2019s me.\u201d</td><td>Pattern recognition \u00b7 Dopamine trigger</td></tr>' +
+      '<tr><td><strong>02</strong></td><td>8\u201322s</td><td>Escalate the tension. The character faces a choice between conformity and self-expression. Stakes feel real.</td><td>Cortisol + empathy \u00b7 Leaning forward</td></tr>' +
+      '<tr><td><strong>03</strong></td><td>23\u201330s</td><td>Character chooses freedom. The ' + escBattle(brandName) + ' product appears naturally \u2014 worn, used, chosen. Slogan fades in. Relief + aspiration.</td><td>Oxytocin + brand encoding</td></tr>' +
+    '</tbody></table></div>';
+
+  // Campaign Themes
+  if (s.themes && s.themes.length) {
+    sHtml += '<div class="strategy-block" style="margin-top:8px"><div class="strategy-block-title">Campaign Themes</div>' +
+      '<p style="font-size:16px;color:var(--mid);margin-bottom:8px;line-height:1.6">Each theme is a well from which dozens of stories can be drawn over 10+ years.</p>' +
+      '<div class="themes-grid">';
+    s.themes.forEach(function(t, i) {
+      sHtml += '<div class="theme-card"><div class="theme-num">0' + (i + 1) + '</div>' +
+        '<div class="theme-name">' + escBattle(t.name) + '</div>' +
+        '<div class="theme-sub">' + escBattle(t.sub) + '</div>' +
+        '<div class="theme-desc">' + escBattle(t.desc) + '</div></div>';
+    });
+    sHtml += '</div></div>';
+  }
+
+  // Story Plots
+  if (s.stories && s.stories.length) {
+    sHtml += '<div class="strategy-block" style="margin-top:8px"><div class="strategy-block-title">Story Plots</div>' +
+      '<p style="font-size:16px;color:var(--mid);margin-bottom:16px;line-height:1.6">Filmable three-act plots. Product appears only in Act 3 \u2014 maximum 3\u20135 seconds of brand visibility.</p>' +
+      '<div class="story-plots">';
+    s.stories.forEach(function(story) {
+      sHtml += '<div class="story-card"><div class="story-theme-tag">' + escBattle(story.themeTag) + '</div>' +
+        '<div class="story-title">' + escBattle(story.title) + '</div><div class="story-acts">';
+      (story.acts || []).forEach(function(a) {
+        sHtml += '<div class="story-act"><div class="act-label">' + escBattle(a.label) + '</div>' +
+          '<div class="act-desc">' + escBattle(a.desc) + '</div></div>';
+      });
+      sHtml += '</div></div>';
+    });
+    sHtml += '</div></div>';
+  }
+
+  // Pitfalls
+  if (s.pitfalls && s.pitfalls.length) {
+    sHtml += '<div class="strategy-block" style="margin-top:8px"><div class="strategy-block-title">Common Pitfalls to Avoid</div><div class="pitfalls-grid">';
+    s.pitfalls.forEach(function(p) {
+      sHtml += '<div class="pitfall-card"><div class="pitfall-icon">' + BATTLE_ICONS.pitfall + '</div><div class="pitfall-text">' + p + '</div></div>';
+    });
+    sHtml += '</div></div>';
+  }
+
+  // CTA buttons
+  sHtml += '<div style="margin-top:24px;display:flex;gap:16px;flex-wrap:wrap">' +
+    '<button class="btn-primary" onclick="openModal(\'strategistModal\')">Connect with a Creative Strategist \u2192</button>' +
+    '<button class="btn-ghost" onclick="openModal(\'pdfModal\')">Download Full Strategy PDF</button></div>';
+  sHtml += '</div>';
+
+  stratContent.innerHTML = sHtml;
+}
+
+function renderBattleCards(data, brandName, category) {
+  renderCompetitorTab(data, brandName);
+  renderMarketTab(data, brandName);
+  renderConceptsTab(data, brandName);
+  renderStrategyTab(data, brandName, category);
+
+  // ── Update Hero Preview ──
+  var hcpLabel = document.querySelector('.hcp-label');
+  if (hcpLabel) {
+    hcpLabel.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Live Battle Card Preview \u00b7 ' + escBattle(brandName);
+  }
+
+  // Update hero scores from main analysis data
+  var ad = window.lastAnalysisData;
+  if (ad) {
+    var scores = ad.scores || ad;
+    var scoreNums = document.querySelectorAll('.hcp-score-num');
+    if (scoreNums.length >= 3) {
+      scoreNums[0].textContent = scores.ai || 78;
+      scoreNums[1].textContent = ad.savings || '\u20b962L';
+      scoreNums[2].textContent = '+' + Math.round((100 - (scores.platform || 67)) * 0.8) + '%';
+    }
+    var alertListEl = document.querySelector('.hero-card-preview .alert-list');
+    if (alertListEl && ad.alerts && ad.alerts.length >= 3) {
+      alertListEl.innerHTML = ad.alerts.slice(0, 3).map(function(a) {
+        return '<div class="alert-item ' + a.type + '"><div class="alert-icon">' + a.icon + '</div><div class="alert-text">' + a.text + '</div></div>';
+      }).join('');
+    }
+  }
+
+  // Update playbook header
+  var ptEl = document.getElementById('playbookTitle');
+  if (ptEl) ptEl.textContent = brandName + ' \u00b7 March 2026';
+
+  document.querySelectorAll('.playbook-header span').forEach(function(span) {
+    if (span.style && span.style.fontWeight === '700' && span.style.color) {
+      span.textContent = brandName;
+    }
+    if (span.textContent && span.textContent.indexOf('Fashion & Apparel') !== -1) {
+      span.textContent = '\u00b7 ' + category + ' \u00b7 March 2026';
+    }
+  });
+
+  // Re-init scroll reveal for dynamically added elements
+  document.querySelectorAll('#page-battle .comp-card, #page-battle .concept-card, #page-battle .mc-card, #page-battle .strategy-block, #page-battle .mt-card').forEach(function(el) {
+    el.classList.add('reveal', 'visible');
+  });
+}

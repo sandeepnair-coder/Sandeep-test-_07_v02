@@ -1,17 +1,17 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "api/**/*.js",
-      "use": "@vercel/node"
+  "functions": {
+    "api/brand-audit.js": {
+      "maxDuration": 60
     },
-    {
-      "src": "public/**",
-      "use": "@vercel/static"
+    "api/claude.js": {
+      "maxDuration": 60
+    },
+    "api/health.js": {
+      "maxDuration": 10
     }
-  ],
-  "routes": [
-    { "src": "/api/(.*)", "dest": "/api/$1" },
-    { "src": "/(.*)", "dest": "/public/$1" }
+  },
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/public/$1" }
   ]
 }
