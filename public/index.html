@@ -2774,6 +2774,118 @@ function renderResults(brandName, category, segment, data) {
   document.getElementById('resultsSection').classList.add('visible');
   document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
   showToast('success', 'Analysis complete!', `${brandName}'s creative health check is ready.`);
+
+  // ── Generate AI Battle Card content in background ──
+  generateBattleContent(brandName, category, segment);
+}
+
+// ── AI BATTLE CARD CONTENT GENERATOR ──
+var battleContentCache = {};
+
+async function generateBattleContent(brandName, category, segment) {
+  if (brandName === 'Your Brand') return;
+  var cacheKey = brandName + '|' + category;
+  if (battleContentCache[cacheKey]) {
+    applyBattleContent(battleContentCache[cacheKey], brandName);
+    return;
+  }
+
+  try {
+    var res = await fetch('/api/claude', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 3000,
+        system: 'You are an expert Indian D2C brand strategist. Generate battle card content for the given brand. Respond ONLY with valid JSON, no markdown fences.',
+        messages: [{ role: 'user', content: 'Brand: ' + brandName + '\nCategory: ' + category + '\nSegment: ' + segment + '\n\nGenerate battle card content with this exact JSON structure:\n{\n  "marketCapture": {\n    "regional": [\n      {"title": "<Festival/Region>", "desc": "<2 sentences with specific data>", "opp": "<revenue opportunity>"}\n    ],\n    "platforms": [\n      {"rank": 1, "name": "<platform>", "desc": "<2 sentences>", "priority": "HIGH|MEDIUM|EMERGING"}\n    ],\n    "seasonal": [\n      {"title": "<event>", "desc": "<2 sentences>", "opp": "<opportunity>"}\n    ]\n  },\n  "concepts": [\n    {"name": "<campaign name>", "desc": "<3 sentences describing the concept>", "tag": "<category tag>"}\n  ],\n  "competitors": [\n    {"name": "<competitor>", "type": "<type>", "strength": "<what they do well>", "weakness": "<gap vs this brand>"}\n  ]\n}\n\nBe specific to ' + brandName + ' in the ' + category + ' category in India. Use real platforms, festivals, cities, and data points. Generate 4 regional opportunities, 4 platform rankings, 4 seasonal campaigns, 3 campaign concepts, and 4 competitors.' }]
+      })
+    });
+
+    if (!res.ok) throw new Error('API ' + res.status);
+    var apiData = await res.json();
+    var rawText = (apiData.content || []).map(function(c) { return c.text || ''; }).join('');
+    var cleaned = rawText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+    var parsed = JSON.parse(cleaned);
+
+    battleContentCache[cacheKey] = parsed;
+    applyBattleContent(parsed, brandName);
+
+  } catch(err) {
+    console.warn('Battle content generation failed:', err.message);
+    // Just do text replacement as fallback
+    personalizeBattleCards();
+  }
+}
+
+function applyBattleContent(data, brandName) {
+  // ── Market Capture Tab ──
+  if (data.marketCapture) {
+    var mc = data.marketCapture;
+    var mcEl = document.getElementById('tab-market');
+    if (mcEl && mc.regional && mc.platforms && mc.seasonal) {
+      var html = '<div class="market-capture-grid">';
+
+      // Regional column
+      html += '<div class="mc-card"><div class="mc-label"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/></svg> Untapped Regional Markets</div>';
+      mc.regional.forEach(function(r) {
+        html += '<div class="mc-item"><div class="mc-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="6" r="3"/><path d="M8 22h8l-1-10H9z"/></svg></div><div class="mc-text"><div class="mc-title">' + r.title + '</div><div class="mc-sub">' + r.desc + '</div><div class="mc-opp">' + r.opp + '</div></div></div>';
+      });
+      html += '</div>';
+
+      // Platform column
+      html += '<div class="mc-card"><div class="mc-label"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg> Platform Priority Ranking</div>';
+      mc.platforms.forEach(function(p, i) {
+        var bg = i === 0 ? 'background:var(--electric-dim);color:var(--electric)' : i === 1 ? 'background:rgba(124,58,237,0.1);color:var(--signal)' : 'background:rgba(255,255,255,0.06);color:var(--mid)';
+        html += '<div class="mc-item"><div class="mc-icon" style="' + bg + '">' + p.rank + '</div><div class="mc-text"><div class="mc-title">' + p.name + '</div><div class="mc-sub">' + p.desc + '</div><div class="mc-opp">' + p.priority + '</div></div></div>';
+      });
+      html += '</div>';
+
+      // Seasonal column
+      html += '<div class="mc-card"><div class="mc-label"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Seasonal Campaign Calendar</div>';
+      mc.seasonal.forEach(function(s) {
+        html += '<div class="mc-item"><div class="mc-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><div class="mc-text"><div class="mc-title">' + s.title + '</div><div class="mc-sub">' + s.desc + '</div><div class="mc-opp">' + s.opp + '</div></div></div>';
+      });
+      html += '</div></div>';
+
+      mcEl.innerHTML = html;
+    }
+  }
+
+  // ── AI Concepts Tab ──
+  if (data.concepts) {
+    var conEl = document.getElementById('tab-concepts');
+    if (conEl) {
+      var chtml = '<div style="margin-bottom:24px;font-size:14px;color:var(--mid)">AI-generated campaign concepts for <strong style="color:var(--paper)">' + brandName + '</strong> — tailored to your brand DNA and identified market gaps.</div>';
+      chtml += '<div class="concepts-grid">';
+      var gradients = ['linear-gradient(135deg,#0a0a0a,#7C3AED)', 'linear-gradient(135deg,#0a0a0a,#00FFC2)', 'linear-gradient(135deg,#7C3AED,#0a0a0a)'];
+      data.concepts.forEach(function(c, i) {
+        chtml += '<div class="concept-card"><div class="concept-preview" style="background:' + gradients[i % 3] + ';height:160px;display:flex;align-items:center;justify-content:center"><div style="font-family:Inter,sans-serif;font-size:20px;font-weight:800;color:white;text-shadow:0 2px 20px rgba(0,0,0,0.8);text-align:center;padding:0 24px">' + c.name.toUpperCase() + '</div><div class="concept-ai-badge">AI Generated</div></div><div class="concept-body"><div class="concept-title">' + c.name + '</div><div class="concept-desc">' + c.desc + '</div><div class="concept-tags"><span class="ctag">' + (c.tag || category) + '</span><span class="ctag">AI-First</span><span class="ctag">' + brandName + '</span></div></div></div>';
+      });
+      chtml += '</div>';
+      conEl.innerHTML = chtml;
+    }
+  }
+
+  // ── Competitor Tab — update the brand-specific competitor card ──
+  if (data.competitors) {
+    var compGrid = document.querySelector('#tab-competitor .comp-grid');
+    if (compGrid) {
+      var chml = '';
+      data.competitors.forEach(function(c) {
+        chml += '<div class="comp-card"><div class="comp-header"><div class="comp-name">' + c.name + '</div><span class="comp-badge rising">' + c.type + '</span></div>';
+        chml += '<div class="comp-metric"><span class="key">Strength</span><span class="val neutral">' + c.strength + '</span></div>';
+        chml += '<div class="comp-metric"><span class="key">Gap vs ' + brandName + '</span><span class="val good">' + c.weakness + '</span></div></div>';
+      });
+      // Add the brand card
+      chml += '<div class="comp-card" style="border-color:rgba(0,255,194,0.15)"><div class="comp-header"><div class="comp-name" style="color:var(--electric)">' + brandName + ' (Your Brand)</div><span class="comp-badge" style="background:var(--electric-dim);color:var(--electric)">AI-Optimised</span></div>';
+      chml += '<div class="comp-metric"><span class="key">AI Advantage</span><span class="val good">48hr turnaround with Fynd Studio</span></div>';
+      chml += '<div class="comp-metric"><span class="key">Opportunity</span><span class="val good">First-mover in AI-generated content</span></div></div>';
+      compGrid.innerHTML = chml;
+    }
+  }
+
+  showToast('success', 'Battle Cards personalised', brandName + ' battle card content generated by AI.');
 }
 
 document.addEventListener('keydown', e => {
