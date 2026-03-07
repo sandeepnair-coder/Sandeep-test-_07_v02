@@ -1,5 +1,16 @@
 {
   "version": 2,
+  "functions": {
+    "api/brand-audit.js": {
+      "maxDuration": 60
+    },
+    "api/claude.js": {
+      "maxDuration": 60
+    },
+    "api/health.js": {
+      "maxDuration": 10
+    }
+  },
   "builds": [
     {
       "src": "api/**/*.js",
