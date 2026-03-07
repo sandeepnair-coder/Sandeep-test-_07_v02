@@ -1,0 +1,14 @@
+{
+  "name": "fynd-studio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Fynd Studio — AI-Powered Creative Intelligence Platform",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "echo 'Static site — no build step'",
+    "start": "vercel dev"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
