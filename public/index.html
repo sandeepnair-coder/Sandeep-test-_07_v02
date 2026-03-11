@@ -2746,16 +2746,27 @@ async function callBrandAudit(brandName, category, segment, urls) {
 
 async function callClaude(systemPrompt, userPrompt, maxTokens) {
   // Generic Claude proxy (for Battle Cards etc.)
-  const res = await fetch('/api/claude', {
-    method: 'POST',
-    headers: getApiHeaders(),
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: maxTokens || 2000,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }]
-    })
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 65000); // 65s client timeout
+  let res;
+  try {
+    res = await fetch('/api/claude', {
+      method: 'POST',
+      headers: getApiHeaders(),
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: maxTokens || 4096,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }]
+      }),
+      signal: controller.signal
+    });
+  } catch(e) {
+    clearTimeout(timeout);
+    if (e.name === 'AbortError') throw new Error('Request timed out — the AI response was too large. Try again.');
+    throw e;
+  }
+  clearTimeout(timeout);
   if (!res.ok) {
     const e = await res.json().catch(() => ({}));
     throw new Error(e.error?.message || 'API error ' + res.status);

@@ -8,7 +8,10 @@
       "maxDuration": 60
     },
     "api/health.js": {
-      "maxDuration": 10
+      "maxDuration": 15
+    },
+    "api/fetch-site.js": {
+      "maxDuration": 15
     }
   },
   "rewrites": [

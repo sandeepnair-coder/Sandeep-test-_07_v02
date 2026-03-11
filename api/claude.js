@@ -20,7 +20,7 @@ module.exports = async function handler(req, res) {
     const { model, max_tokens, system, messages } = req.body;
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 55000);
+    const timeout = setTimeout(() => controller.abort(), 58000); // 58s (within 60s Vercel limit)
 
     const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',

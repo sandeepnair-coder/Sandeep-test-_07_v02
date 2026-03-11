@@ -135,74 +135,34 @@ function escBattle(s) {
   return d.innerHTML;
 }
 
-async function fetchBrandWebsite(urls) {
-  if (!urls || !urls.length) return null;
-  try {
-    var res = await fetch('/api/fetch-site', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ urls: urls })
-    });
-    if (!res.ok) return null;
-    var data = await res.json();
-    return data.results || null;
-  } catch(e) {
-    console.warn('Website fetch failed:', e.message);
-    return null;
-  }
-}
-
 async function generateBattleCardData(brandName, category, segment) {
-  // Get brand URLs from the input form
-  var urlInputs = document.querySelectorAll('.brand-url-input');
-  var urls = [];
-  urlInputs.forEach(function(inp) {
-    var v = inp.value.trim();
-    if (v) urls.push(v);
-  });
-
-  // Fetch website content to give Claude real brand data
-  var siteData = null;
-  if (urls.length) {
-    siteData = await fetchBrandWebsite(urls);
-  }
+  // Use analysis data from Creative Intel if available (avoids re-fetching website)
+  var ad = window.lastAnalysisData;
 
   var userPrompt = 'Brand: ' + brandName + '\nCategory: ' + category + '\nMarket Segment: ' + segment;
 
-  if (siteData && siteData.length) {
-    userPrompt += '\n\n--- BRAND WEBSITE DATA (scraped from actual site) ---\n';
-    siteData.forEach(function(s) {
-      if (s.status === 'ok' && s.content) {
-        userPrompt += '\nURL: ' + s.url;
-        if (s.content.title) userPrompt += '\nSite Title: ' + s.content.title;
-        if (s.content.description) userPrompt += '\nDescription: ' + s.content.description;
-        if (s.content.categories && s.content.categories.length) {
-          userPrompt += '\nNavigation/Categories: ' + s.content.categories.join(', ');
-        }
-        if (s.content.features && s.content.features.length) {
-          userPrompt += '\nKeywords: ' + s.content.features.join(', ');
-        }
-        if (s.content.pricing && s.content.pricing.length) {
-          userPrompt += '\nPrice points found: ' + s.content.pricing.join(', ');
-        }
-        if (s.content.socialLinks && s.content.socialLinks.length) {
-          userPrompt += '\nSocial Media: ' + s.content.socialLinks.join(', ');
-        }
-        if (s.content.rawText) {
-          userPrompt += '\nPage Content (excerpt): ' + s.content.rawText.substring(0, 1500);
-        }
-        userPrompt += '\n';
-      }
-    });
-    userPrompt += '--- END WEBSITE DATA ---\n';
-  } else {
-    userPrompt += '\n\nNote: No website URLs were provided or website could not be fetched. Mark all brand-specific metrics as "Data unavailable" with confidence "unverified". Focus on category-level insights instead.';
+  // If we already have brand audit data, pass key insights to avoid redundant work
+  if (ad) {
+    userPrompt += '\n\nBrand audit already completed. Key findings:';
+    if (ad.scores) {
+      var sc = ad.scores;
+      userPrompt += '\n- Creative Velocity: ' + sc.velocity + '/100';
+      userPrompt += '\n- Stagnation Risk: ' + sc.stagnation;
+      userPrompt += '\n- Regional Score: ' + sc.regional + '/100';
+      userPrompt += '\n- AI Opportunity: ' + sc.ai + '/100';
+      userPrompt += '\n- Platform Score: ' + sc.platform + '/100';
+    }
+    if (ad.topInsight) userPrompt += '\n- Top Insight: ' + ad.topInsight;
+    if (ad.savings) userPrompt += '\n- Est. Savings: ' + ad.savings;
+    if (ad.competitorBenchmark && ad.competitorBenchmark.summary) {
+      userPrompt += '\n- Competitor Context: ' + ad.competitorBenchmark.summary;
+    }
   }
 
-  userPrompt += '\n\nGenerate a complete battle card analysis. All competitors must be REAL brands competing in this exact category in India. Use the website data above to understand what this brand actually sells, their positioning, and pricing. For any metric you cannot verify, use "Data unavailable" — NEVER fabricate numbers.';
+  userPrompt += '\n\nGenerate a complete battle card analysis. All competitors must be REAL brands competing in this exact category in India. For any metric you cannot verify, use "Data unavailable" — NEVER fabricate numbers.';
 
   try {
-    var rawText = await callClaude(BATTLE_CARD_PROMPT, userPrompt, 4096);
+    var rawText = await callClaude(BATTLE_CARD_PROMPT, userPrompt, 8192);
     var cleaned = rawText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
     battleCardData = JSON.parse(cleaned);
     window._battleBrand = brandName;
