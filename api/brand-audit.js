@@ -91,6 +91,13 @@ function buildSystemPrompt() {
 
 When given a brand name, category, market segment, and website URLs, you produce a realistic, data-grounded audit. Use your knowledge of the Indian D2C market to generate realistic scores, gaps, and opportunities. Be specific — name real platforms, real festivals, real content formats. Avoid generic advice.
 
+IMPORTANT — For every score and finding, you MUST provide:
+1. A confidence level ("high" if you have direct knowledge of this brand, "medium" if inferring from category/segment, "low" if based on general assumptions)
+2. A methodology note explaining HOW you arrived at that specific number/finding
+3. Source references — cite the specific benchmarks, reports, or data points you used (e.g. "RedSeer D2C Report 2024", "Meta Business Suite benchmarks", "Bain & Company India D2C Report")
+
+This is critical for user trust — every data point must be traceable to a reasoning chain.
+
 Respond ONLY with valid JSON, no markdown, no backticks, no explanation outside the JSON. Use this exact structure:
 {
   "scores": {
@@ -100,7 +107,15 @@ Respond ONLY with valid JSON, no markdown, no backticks, no explanation outside 
     "ai": <0-100>,
     "platform": <0-100>
   },
+  "scoreMethodology": {
+    "velocity": {"confidence": "<high|medium|low>", "method": "<1-2 sentences: how you calculated this score>", "benchmark": "<what you compared against>"},
+    "stagnation": {"confidence": "<high|medium|low>", "method": "<1-2 sentences>", "benchmark": "<comparison>"},
+    "regional": {"confidence": "<high|medium|low>", "method": "<1-2 sentences>", "benchmark": "<comparison>"},
+    "ai": {"confidence": "<high|medium|low>", "method": "<1-2 sentences>", "benchmark": "<comparison>"},
+    "platform": {"confidence": "<high|medium|low>", "method": "<1-2 sentences>", "benchmark": "<comparison>"}
+  },
   "savings": "<string like '₹45–72 Lakhs'>",
+  "savingsMethodology": "<2-3 sentences explaining assumptions: team size, content volume, cost per asset, AI tool pricing used>",
   "overallGrade": "<A+|A|B+|B|C+|C|D>",
   "topInsight": "<one powerful sentence>",
   "breakdown": [
@@ -121,7 +136,14 @@ Respond ONLY with valid JSON, no markdown, no backticks, no explanation outside 
     "categoryLeaderPosts": <integer>,
     "aiAdoptionPct": <integer>,
     "categoryAvgAiPct": <integer>
-  }
+  },
+  "dataSources": [
+    "<string — each source/report/benchmark cited, e.g. 'RedSeer India D2C Report 2024', 'Meta Business Suite category benchmarks', 'Bain India D2C Landscape 2024'>",
+    "<string>",
+    "<string>",
+    "<string>"
+  ],
+  "analysisDisclaimer": "<1-2 sentences: honest statement about data limitations — e.g. 'Scores are estimated from public signals and category benchmarks. For verified metrics, connect your analytics accounts.'>"
 }`;
 }
 
