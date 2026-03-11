@@ -126,7 +126,50 @@ var BATTLE_ICONS = {
   pitfall: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
 };
 
-var BATTLE_CARD_PROMPT = "You are an expert Indian D2C brand creative strategist and competitive intelligence analyst. Generate a complete battle card analysis for the given brand.\n\nCRITICAL RULES — DATA INTEGRITY:\n1. NEVER fabricate or guess specific numbers (posts/month, engagement rates, etc.) unless you have real knowledge of that brand. If you don't know the exact figure, you MUST set the value to \"Data unavailable\" and set the confidence to \"unverified\".\n2. For every metric, include a \"confidence\" field: \"verified\" (you have strong knowledge), \"estimated\" (reasonable inference from category), or \"unverified\" (you're guessing or don't know — use \"Data unavailable\" instead).\n3. For every competitor, include a \"dataSource\" field explaining HOW you know this data (e.g. \"Based on public Instagram profile analytics\" or \"Estimated from category average\").\n4. For brand-specific metrics (posts/month, ER, etc.), if you have NOT seen their actual data, set values to \"Data unavailable\" — do NOT invent numbers.\n5. You will be provided with website content scraped from the brand's actual site. USE THIS to understand what they sell, their pricing, categories, positioning. Reference this in your analysis.\n6. Include a \"methodology\" object explaining the basis for each section.\n\nRespond ONLY with valid JSON, no markdown, no backticks, no explanation outside JSON.\n\nJSON structure:\n{\n  \"competitors\": [\n    {\"name\":\"REAL competitor brand\",\"desc\":\"short descriptor\",\"badge\":\"Category Leader|Fast Mover|Rising Fast|Market Leader|High Spend\",\"badgeClass\":\"leader|rising|rising|leader|rising\",\"posts\":\"NN posts OR Data unavailable\",\"postsConfidence\":\"verified|estimated|unverified\",\"postsClass\":\"good|neutral|bad|unknown\",\"er\":\"N.N% OR Data unavailable\",\"erConfidence\":\"verified|estimated|unverified\",\"erClass\":\"good|neutral|bad|unknown\",\"mix\":\"NN% Reels / NN% Static OR Data unavailable\",\"mixConfidence\":\"verified|estimated|unverified\",\"mixClass\":\"good|neutral|bad|unknown\",\"festivals\":\"NN regional OR Data unavailable\",\"festivalsConfidence\":\"verified|estimated|unverified\",\"festivalsClass\":\"good|neutral|bad|unknown\",\"ai\":\"~NN% est. OR Data unavailable\",\"aiConfidence\":\"verified|estimated|unverified\",\"aiClass\":\"good|neutral|bad|unknown\",\"gap\":\"specific gap vs your brand\",\"gapClass\":\"bad|neutral\",\"dataSource\":\"How you know this data\"}\n  ],\n  \"yourBrand\":{\"desc\":\"descriptor based on website analysis\",\"posts\":\"NN posts OR Data unavailable\",\"postsConfidence\":\"verified|estimated|unverified\",\"er\":\"N.N% OR Data unavailable\",\"erConfidence\":\"verified|estimated|unverified\",\"mix\":\"format OR Data unavailable\",\"mixConfidence\":\"verified|estimated|unverified\",\"festivals\":\"NN regional OR Data unavailable\",\"festivalsConfidence\":\"verified|estimated|unverified\",\"ai\":\"~NN% est. OR Data unavailable\",\"aiConfidence\":\"verified|estimated|unverified\",\"potential\":\"realistic potential with timeline\"},\n  \"markets\":[{\"title\":\"Festival/Region\",\"desc\":\"Market data — use real stats or say estimated\",\"opp\":\"revenue estimate with confidence note\",\"confidence\":\"verified|estimated|unverified\",\"source\":\"data source\"}],\n  \"platforms\":[{\"rank\":1,\"title\":\"Platform\",\"desc\":\"Opportunity data\",\"opp\":\"priority and metric\",\"confidence\":\"verified|estimated|unverified\"}],\n  \"seasonal\":[{\"title\":\"Campaign (Month)\",\"desc\":\"Market context\",\"opp\":\"revenue and window\",\"confidence\":\"verified|estimated|unverified\"}],\n  \"trends\":[{\"tag\":\"rising|emerging|urgent\",\"title\":\"Trend\",\"stat\":\"+NNN% OR Data unavailable\",\"statConfidence\":\"verified|estimated|unverified\",\"statLabel\":\"measure\",\"desc\":\"2-3 sentences\",\"action\":\"action with cost\",\"source\":\"where this trend data comes from\"}],\n  \"concepts\":[{\"title\":\"Campaign Name\",\"subtitle\":\"BRAND x THEME\",\"desc\":\"2-3 sentences grounded in brand's actual products\",\"tags\":[\"Platform\",\"Timing\",\"Audience\",\"Theme\"]}],\n  \"strategy\":{\n    \"categoryLabel\":\"Category\",\n    \"slogan\":\"Brand slogan\",\"sloganTranslation\":\"English if not English else empty\",\"sloganExplain\":\"2-3 sentences\",\n    \"productTruth\":\"Based on actual products found on website\",\"humanEmotion\":\"One sentence\",\n    \"themes\":[{\"name\":\"Theme\",\"sub\":\"Subtitle\",\"desc\":\"3-4 sentences\"}],\n    \"stories\":[{\"themeTag\":\"Theme 01: Name\",\"title\":\"Title\",\"acts\":[{\"label\":\"Act 1 . 0-7s\",\"desc\":\"Scene\"},{\"label\":\"Act 2 . 8-22s\",\"desc\":\"Scene\"},{\"label\":\"Act 3 . 23-30s\",\"desc\":\"Scene\"}]}],\n    \"pitfalls\":[\"<strong>Bold title.</strong> Explanation.\"]\n  },\n  \"methodology\":{\n    \"competitorSelection\":\"How you chose these 5 competitors\",\n    \"metricsApproach\":\"How metrics were derived (public data, estimates, etc.)\",\n    \"limitationsNote\":\"Honest statement about what data you could NOT verify\"\n  },\n  \"dataSources\":[\"Source 1\",\"Source 2\",\"Source 3\",\"Source 4\"]\n}\n\nRules:\n- competitors: exactly 5 REAL brands competing in same category in India\n- markets: exactly 4 regional/festival opportunities\n- platforms: exactly 4 ranked by priority\n- seasonal: exactly 4 seasonal windows\n- trends: exactly 4 micro-trends\n- concepts: exactly 3 campaign ideas — MUST reference actual products from website\n- themes: exactly 4 campaign themes\n- stories: exactly 3 filmable story plots\n- pitfalls: exactly 4 pitfalls\n- All data specific to Indian market\n- NEVER FABRICATE NUMBERS — use 'Data unavailable' if uncertain";
+var BATTLE_CARD_PROMPT = [
+  "You are an expert Indian D2C brand creative strategist. Generate a battle card analysis.",
+  "",
+  "DATA RULES: Use 'Data unavailable' for any metric you cannot verify. NEVER invent numbers.",
+  "Each competitor gets ONE confidence level and ONE dataSource for ALL its metrics.",
+  "confidence: 'verified' (you know this brand well), 'estimated' (category inference), 'unverified' (guessing).",
+  "",
+  "Respond ONLY with valid JSON. No markdown. No backticks.",
+  "",
+  "JSON structure:",
+  "{",
+  "  \"competitors\": [",
+  "    {\"name\":\"REAL brand\",\"desc\":\"short\",\"badge\":\"Category Leader|Fast Mover|Rising Fast|Market Leader|High Spend\",",
+  "     \"badgeClass\":\"leader|rising\",\"confidence\":\"verified|estimated|unverified\",\"dataSource\":\"how you know\",",
+  "     \"posts\":\"NN posts\",\"postsClass\":\"good|neutral|bad\",",
+  "     \"er\":\"N.N%\",\"erClass\":\"good|neutral|bad\",",
+  "     \"mix\":\"NN% Reels / NN% Static\",\"mixClass\":\"good|neutral|bad\",",
+  "     \"festivals\":\"NN regional\",\"festivalsClass\":\"good|neutral|bad\",",
+  "     \"ai\":\"~NN% est.\",\"aiClass\":\"good|neutral|bad\",",
+  "     \"gap\":\"gap vs brand\",\"gapClass\":\"bad|neutral\"}",
+  "  ],",
+  "  \"yourBrand\":{\"desc\":\"short\",\"confidence\":\"verified|estimated|unverified\",",
+  "    \"posts\":\"NN\",\"er\":\"N.N%\",\"mix\":\"format\",\"festivals\":\"NN\",\"ai\":\"~NN%\",\"potential\":\"target\"},",
+  "  \"markets\":[{\"title\":\"Region\",\"desc\":\"data\",\"opp\":\"revenue\",\"confidence\":\"verified|estimated\"}],",
+  "  \"platforms\":[{\"rank\":1,\"title\":\"Platform\",\"desc\":\"data\",\"opp\":\"metric\"}],",
+  "  \"seasonal\":[{\"title\":\"Campaign\",\"desc\":\"context\",\"opp\":\"window\"}],",
+  "  \"trends\":[{\"tag\":\"rising|emerging|urgent\",\"title\":\"Trend\",\"stat\":\"+NNN%\",\"statLabel\":\"measure\",",
+  "    \"desc\":\"2 sentences\",\"action\":\"action\",\"source\":\"source\"}],",
+  "  \"concepts\":[{\"title\":\"Name\",\"subtitle\":\"BRAND x THEME\",\"desc\":\"2 sentences\",\"tags\":[\"tag1\",\"tag2\",\"tag3\"]}],",
+  "  \"strategy\":{",
+  "    \"categoryLabel\":\"Cat\",\"slogan\":\"slogan\",\"sloganTranslation\":\"\",\"sloganExplain\":\"2 sentences\",",
+  "    \"productTruth\":\"1 sentence\",\"humanEmotion\":\"1 sentence\",",
+  "    \"themes\":[{\"name\":\"Theme\",\"sub\":\"Sub\",\"desc\":\"2-3 sentences\"}],",
+  "    \"stories\":[{\"themeTag\":\"Theme 01\",\"title\":\"Title\",",
+  "      \"acts\":[{\"label\":\"Act 1 . 0-7s\",\"desc\":\"Scene\"},{\"label\":\"Act 2 . 8-22s\",\"desc\":\"Scene\"},{\"label\":\"Act 3 . 23-30s\",\"desc\":\"Scene\"}]}],",
+  "    \"pitfalls\":[\"<strong>Title.</strong> Why.\"]",
+  "  },",
+  "  \"methodology\":{\"competitorSelection\":\"how chosen\",\"metricsApproach\":\"how derived\",\"limitationsNote\":\"what unverified\"},",
+  "  \"dataSources\":[\"Source 1\",\"Source 2\",\"Source 3\"]",
+  "}",
+  "",
+  "Counts: 4 competitors, 4 markets, 4 platforms, 4 seasonal, 4 trends, 3 concepts, 3 themes, 2 stories, 3 pitfalls.",
+  "All India-specific. Keep descriptions SHORT to fit within token limits."
+].join("\n");
 
 function escBattle(s) {
   if (!s) return '';
@@ -162,7 +205,7 @@ async function generateBattleCardData(brandName, category, segment) {
   userPrompt += '\n\nGenerate a complete battle card analysis. All competitors must be REAL brands competing in this exact category in India. For any metric you cannot verify, use "Data unavailable" — NEVER fabricate numbers.';
 
   try {
-    var rawText = await callClaude(BATTLE_CARD_PROMPT, userPrompt, 8192);
+    var rawText = await callClaude(BATTLE_CARD_PROMPT, userPrompt, 5000);
     var cleaned = rawText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
     battleCardData = JSON.parse(cleaned);
     window._battleBrand = brandName;
@@ -188,12 +231,12 @@ function confBadge(level) {
   return ' <span style="font-size:8px;font-weight:600;letter-spacing:0.06em;padding:2px 6px;border-radius:3px;' + style + ';vertical-align:middle;margin-left:4px">' + label + '</span>';
 }
 
-function metricVal(value, confidence) {
+function metricVal(value, cardConfidence) {
   var val = escBattle(value);
-  if (val === 'Data unavailable' || val === 'N/A') {
-    return '<span style="color:rgba(255,255,255,0.3);font-style:italic">Data unavailable</span>' + confBadge('unverified');
+  if (!val || val === 'Data unavailable' || val === 'N/A' || val === 'undefined') {
+    return '<span style="color:rgba(255,255,255,0.3);font-style:italic">Data unavailable</span>';
   }
-  return val + confBadge(confidence);
+  return val;
 }
 
 function renderCompetitorTab(data, brandName) {
@@ -213,15 +256,15 @@ function renderCompetitorTab(data, brandName) {
 
   data.competitors.forEach(function(c) {
     html += '<div class="comp-card">' +
-      '<div class="comp-header"><div><div class="comp-name">' + escBattle(c.name) + '</div>' +
+      '<div class="comp-header"><div><div class="comp-name">' + escBattle(c.name) + confBadge(c.confidence) + '</div>' +
       '<div style="font-size:12px;color:var(--mid);margin-top:8px">' + escBattle(c.desc) + '</div></div>' +
       '<div class="comp-badge ' + escBattle(c.badgeClass) + '">' + escBattle(c.badge) + '</div></div>' +
-      '<div class="comp-metric"><span class="key">Posts/Month</span><span class="val ' + escBattle(c.postsClass) + '">' + metricVal(c.posts, c.postsConfidence) + '</span></div>' +
-      '<div class="comp-metric"><span class="key">Avg. Engagement Rate</span><span class="val ' + escBattle(c.erClass) + '">' + metricVal(c.er, c.erConfidence) + '</span></div>' +
-      '<div class="comp-metric"><span class="key">Creative Mix</span><span class="val ' + escBattle(c.mixClass) + '">' + metricVal(c.mix, c.mixConfidence) + '</span></div>' +
-      '<div class="comp-metric"><span class="key">Festival Campaigns 2025</span><span class="val ' + escBattle(c.festivalsClass) + '">' + metricVal(c.festivals, c.festivalsConfidence) + '</span></div>' +
-      '<div class="comp-metric"><span class="key">AI Adoption</span><span class="val ' + escBattle(c.aiClass) + '">' + metricVal(c.ai, c.aiConfidence) + '</span></div>' +
-      '<div class="comp-metric"><span class="key">Your Gap</span><span class="val ' + escBattle(c.gapClass) + '">' + escBattle(c.gap) + '</span></div>';
+      '<div class="comp-metric"><span class="key">Posts/Month</span><span class="val ' + escBattle(c.postsClass || '') + '">' + metricVal(c.posts) + '</span></div>' +
+      '<div class="comp-metric"><span class="key">Avg. Engagement Rate</span><span class="val ' + escBattle(c.erClass || '') + '">' + metricVal(c.er) + '</span></div>' +
+      '<div class="comp-metric"><span class="key">Creative Mix</span><span class="val ' + escBattle(c.mixClass || '') + '">' + metricVal(c.mix) + '</span></div>' +
+      '<div class="comp-metric"><span class="key">Festival Campaigns 2025</span><span class="val ' + escBattle(c.festivalsClass || '') + '">' + metricVal(c.festivals) + '</span></div>' +
+      '<div class="comp-metric"><span class="key">AI Adoption</span><span class="val ' + escBattle(c.aiClass || '') + '">' + metricVal(c.ai) + '</span></div>' +
+      '<div class="comp-metric"><span class="key">Your Gap</span><span class="val ' + escBattle(c.gapClass || '') + '">' + escBattle(c.gap) + '</span></div>';
     if (c.dataSource) {
       html += '<div style="margin-top:8px;padding:8px 12px;background:rgba(255,255,255,0.02);border-radius:4px;font-size:10px;color:var(--mid);line-height:1.5">&#128218; ' + escBattle(c.dataSource) + '</div>';
     }
@@ -231,14 +274,14 @@ function renderCompetitorTab(data, brandName) {
   if (data.yourBrand) {
     var yb = data.yourBrand;
     html += '<div class="comp-card" style="border-color:rgba(0,229,192,0.2);background:rgba(0,229,192,0.03)">' +
-      '<div class="comp-header"><div><div class="comp-name" style="color:var(--electric)">' + escBattle(brandName) + ' (Your Brand)</div>' +
+      '<div class="comp-header"><div><div class="comp-name" style="color:var(--electric)">' + escBattle(brandName) + ' (Your Brand)' + confBadge(yb.confidence) + '</div>' +
       '<div style="font-size:12px;color:var(--mid);margin-top:8px">' + escBattle(yb.desc) + '</div></div>' +
       '<div class="comp-badge lagging">Needs Acceleration</div></div>' +
-      '<div class="comp-metric"><span class="key">Posts/Month</span><span class="val bad">' + metricVal(yb.posts, yb.postsConfidence) + '</span></div>' +
-      '<div class="comp-metric"><span class="key">Avg. Engagement Rate</span><span class="val bad">' + metricVal(yb.er, yb.erConfidence) + '</span></div>' +
-      '<div class="comp-metric"><span class="key">Creative Mix</span><span class="val bad">' + metricVal(yb.mix, yb.mixConfidence) + '</span></div>' +
-      '<div class="comp-metric"><span class="key">Festival Campaigns 2025</span><span class="val bad">' + metricVal(yb.festivals, yb.festivalsConfidence) + '</span></div>' +
-      '<div class="comp-metric"><span class="key">AI Adoption</span><span class="val bad">' + metricVal(yb.ai, yb.aiConfidence) + '</span></div>' +
+      '<div class="comp-metric"><span class="key">Posts/Month</span><span class="val bad">' + metricVal(yb.posts) + '</span></div>' +
+      '<div class="comp-metric"><span class="key">Avg. Engagement Rate</span><span class="val bad">' + metricVal(yb.er) + '</span></div>' +
+      '<div class="comp-metric"><span class="key">Creative Mix</span><span class="val bad">' + metricVal(yb.mix) + '</span></div>' +
+      '<div class="comp-metric"><span class="key">Festival Campaigns 2025</span><span class="val bad">' + metricVal(yb.festivals) + '</span></div>' +
+      '<div class="comp-metric"><span class="key">AI Adoption</span><span class="val bad">' + metricVal(yb.ai) + '</span></div>' +
       '<div class="comp-metric"><span class="key">Fynd Studio Potential</span><span class="val good">' + escBattle(yb.potential) + '</span></div>' +
     '</div>';
   }
