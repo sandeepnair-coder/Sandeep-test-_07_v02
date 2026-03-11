@@ -51,7 +51,7 @@ module.exports = async function handler(req, res) {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 3000,
+        max_tokens: 4000,
         system: system,
         messages: [{ role: 'user', content: user }]
       }),
@@ -223,5 +223,4 @@ async function fetchBrandSite(urls) {
     }
   }
   return results.length ? results.join('\n\n') : null;
-}
 }
