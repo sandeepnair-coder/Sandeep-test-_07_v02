@@ -1718,6 +1718,7 @@ footer{border-top:1px solid var(--border);padding:48px;display:flex;justify-cont
     <div class="scores-grid">
       <div class="score-card">
         <div class="score-label">Creative Velocity Score</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.4);line-height:1.5;margin-bottom:12px">How fast you publish new creative content compared to category leaders. Higher = more active content engine.</div>
         <div class="score-value danger" id="score-velocity">—</div>
         <div class="score-bar"><div class="score-fill danger" id="bar-velocity" style="width:0%"></div></div>
         <div class="score-delta" id="delta-velocity">—</div>
@@ -1727,6 +1728,7 @@ footer{border-top:1px solid var(--border);padding:48px;display:flex;justify-cont
       </div>
       <div class="score-card">
         <div class="score-label">Visual Stagnation Risk</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.4);line-height:1.5;margin-bottom:12px">Risk of creative fatigue — are your visuals repetitive? Higher score = higher risk of audience tuning out.</div>
         <div class="score-value warn" id="score-stagnation">—</div>
         <div class="score-bar"><div class="score-fill warn" id="bar-stagnation" style="width:0%"></div></div>
         <div class="score-delta" id="delta-stagnation">—</div>
@@ -1736,6 +1738,7 @@ footer{border-top:1px solid var(--border);padding:48px;display:flex;justify-cont
       </div>
       <div class="score-card">
         <div class="score-label">Regional Relevancy Index</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.4);line-height:1.5;margin-bottom:12px">How well your brand covers India's regional markets — Tier 2/3 cities, vernacular content, and local festivals.</div>
         <div class="score-value warn" id="score-regional">—</div>
         <div class="score-bar"><div class="score-fill warn" id="bar-regional" style="width:0%"></div></div>
         <div class="score-delta" id="delta-regional">—</div>
@@ -1745,6 +1748,7 @@ footer{border-top:1px solid var(--border);padding:48px;display:flex;justify-cont
       </div>
       <div class="score-card">
         <div class="score-label">AI Opportunity Score</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.4);line-height:1.5;margin-bottom:12px">How much your brand can benefit from AI-powered creative tools. Higher = more untapped AI potential to exploit.</div>
         <div class="score-value danger" id="score-ai">—</div>
         <div class="score-bar"><div class="score-fill danger" id="bar-ai" style="width:0%"></div></div>
         <div class="score-delta" id="delta-ai">—</div>
@@ -1754,6 +1758,7 @@ footer{border-top:1px solid var(--border);padding:48px;display:flex;justify-cont
       </div>
       <div class="score-card" style="border-left:2px solid var(--electric)">
         <div class="score-label">Platform Compliance Score</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.4);line-height:1.5;margin-bottom:12px">How well your content fits platform best practices — aspect ratios, formats, posting frequency across channels.</div>
         <div class="score-value good" id="score-platform">—</div>
         <div class="score-bar"><div class="score-fill good" id="bar-platform" style="width:0%"></div></div>
         <div class="score-delta" id="delta-platform">—</div>
@@ -1765,12 +1770,17 @@ footer{border-top:1px solid var(--border);padding:48px;display:flex;justify-cont
 
     <div class="insights-grid">
       <div class="insight-panel">
-        <div class="panel-title">Cost Savings Projection <span class="panel-tag">AI vs Traditional</span></div>
+        <div class="panel-title" style="font-size:18px;font-weight:700;margin-bottom:8px">How Much Could You Save? <span class="panel-tag">AI vs Traditional</span></div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:16px;line-height:1.5">If your team currently produces creative content manually (photography, video editing, copywriting), switching to AI-first tools could save you approximately:</div>
         <div class="savings-highlight">
-          <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:var(--mid);margin-bottom:16px">Est. Annual Savings · AI-First Switch</div>
-          <div class="savings-num" id="savingsAmount">—</div>
-          <div class="savings-label">Based on current production scale + industry benchmarks</div>
+          <div style="font-size:14px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--electric);margin-bottom:16px">&#x1F4B0; Estimated Annual Savings</div>
+          <div class="savings-num" id="savingsAmount" style="font-size:clamp(36px,5vw,52px)">—</div>
+          <div class="savings-label" style="font-size:13px;margin-top:12px;color:rgba(255,255,255,0.5)">You could save this amount per year by switching to AI-powered creative production</div>
         </div>
+        <div style="margin-top:16px;padding:12px 16px;background:rgba(255,193,7,0.05);border:1px solid rgba(255,193,7,0.12);border-radius:8px;font-size:11px;color:rgba(255,193,7,0.8);line-height:1.6">
+          <strong>&#9432; Note:</strong> This estimate assumes your team currently handles creative production manually (in-house or via agencies). If you're already using AI tools for content generation, your actual savings may be lower. The projection is based on industry benchmarks for traditional production costs vs AI-assisted workflows.
+        </div>
+        <div style="margin-top:16px;font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--mid);margin-bottom:8px">Cost Comparison: Traditional vs AI</div>
         <div class="savings-breakdown" id="savingsBreakdown"></div>
         <div id="savingsMethodologyWrap" style="display:none;margin-top:16px">
           <div class="methodology-toggle" onclick="toggleMethod('savings-methodology')">&#9662; How was this estimated?</div>
