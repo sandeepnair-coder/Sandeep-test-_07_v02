@@ -92,11 +92,18 @@ var BATTLE_ICONS = {
 };
 
 var BATTLE_CARD_PROMPT = [
-  "You are an expert Indian D2C brand creative strategist. Generate a battle card analysis.",
+  "You are an expert Indian D2C brand creative strategist with deep knowledge of social media benchmarks, competitor activity, and industry trends in India.",
   "",
-  "DATA RULES: Use 'Data unavailable' for any metric you cannot verify. NEVER invent numbers.",
+  "CRITICAL DATA RULES:",
+  "- You MUST provide estimated values for ALL metrics. NEVER return 'Data unavailable' or 'N/A'.",
+  "- Use your knowledge of brands, their social media presence, category benchmarks, and Indian D2C norms to provide realistic estimates.",
+  "- For well-known brands (e.g. Samsonite, American Tourister, Boat, Mamaearth), use your training data to give accurate estimates.",
+  "- For less-known brands, use category benchmarks and reasonable inference.",
+  "- Mark confidence as 'verified' for brands you know well, 'estimated' for category-based inference.",
+  "- Every metric MUST have a numeric or descriptive value — posts: '25-30 posts', er: '2.1%', mix: '60% Reels / 40% Static', festivals: '8-10 regional', ai: '~15% est.'",
+  "- For trends, ALWAYS provide a stat value like '+180%', '+85%', '3.2x growth' — NEVER 'Data unavailable'.",
+  "",
   "Each competitor gets ONE confidence level and ONE dataSource for ALL its metrics.",
-  "confidence: 'verified' (you know this brand well), 'estimated' (category inference), 'unverified' (guessing).",
   "",
   "Respond ONLY with valid JSON. No markdown. No backticks.",
   "",
@@ -104,7 +111,7 @@ var BATTLE_CARD_PROMPT = [
   "{",
   "  \"competitors\": [",
   "    {\"name\":\"REAL brand\",\"desc\":\"short\",\"badge\":\"Category Leader|Fast Mover|Rising Fast|Market Leader|High Spend\",",
-  "     \"badgeClass\":\"leader|rising\",\"confidence\":\"verified|estimated|unverified\",\"dataSource\":\"how you know\",",
+  "     \"badgeClass\":\"leader|rising\",\"confidence\":\"verified|estimated\",\"dataSource\":\"how you know (e.g. Instagram analysis, industry reports)\",",
   "     \"posts\":\"NN posts\",\"postsClass\":\"good|neutral|bad\",",
   "     \"er\":\"N.N%\",\"erClass\":\"good|neutral|bad\",",
   "     \"mix\":\"NN% Reels / NN% Static\",\"mixClass\":\"good|neutral|bad\",",
@@ -112,7 +119,7 @@ var BATTLE_CARD_PROMPT = [
   "     \"ai\":\"~NN% est.\",\"aiClass\":\"good|neutral|bad\",",
   "     \"gap\":\"gap vs brand\",\"gapClass\":\"bad|neutral\"}",
   "  ],",
-  "  \"yourBrand\":{\"desc\":\"short\",\"confidence\":\"verified|estimated|unverified\",",
+  "  \"yourBrand\":{\"desc\":\"short\",\"confidence\":\"verified|estimated\",",
   "    \"posts\":\"NN\",\"er\":\"N.N%\",\"mix\":\"format\",\"festivals\":\"NN\",\"ai\":\"~NN%\",\"potential\":\"target\"},",
   "  \"markets\":[{\"title\":\"Region\",\"desc\":\"data\",\"opp\":\"revenue\",\"confidence\":\"verified|estimated\"}],",
   "  \"platforms\":[{\"rank\":1,\"title\":\"Platform\",\"desc\":\"data\",\"opp\":\"metric\"}],",
@@ -120,12 +127,13 @@ var BATTLE_CARD_PROMPT = [
   "  \"trends\":[{\"tag\":\"rising|emerging|urgent\",\"title\":\"Trend\",\"stat\":\"+NNN%\",\"statLabel\":\"measure\",",
   "    \"desc\":\"2 sentences\",\"action\":\"action\",\"source\":\"source\"}],",
   "  \"concepts\":[{\"title\":\"Name\",\"subtitle\":\"BRAND x THEME\",\"desc\":\"2 sentences\",\"tags\":[\"tag1\",\"tag2\",\"tag3\"]}],",
-  "  \"methodology\":{\"competitorSelection\":\"how chosen\",\"metricsApproach\":\"how derived\",\"limitationsNote\":\"what unverified\"},",
+  "  \"methodology\":{\"competitorSelection\":\"how chosen\",\"metricsApproach\":\"Estimated from brand knowledge, social media benchmarks, and Indian D2C category norms\",\"limitationsNote\":\"Metrics are AI-estimated based on brand knowledge and category benchmarks; actual values may vary\"},",
   "  \"dataSources\":[\"Source 1\",\"Source 2\",\"Source 3\"]",
   "}",
   "",
   "Counts: 4 competitors, 4 markets, 4 platforms, 4 seasonal, 4 trends, 3 concepts.",
-  "All India-specific. Keep descriptions SHORT to fit within token limits."
+  "All India-specific. Keep descriptions SHORT to fit within token limits.",
+  "REMEMBER: Every single metric field MUST have a real estimated value. Zero 'Data unavailable' values allowed."
 ].join("\n");
 
 function escBattle(s) {
@@ -209,7 +217,7 @@ async function generateBattleCardData(brandName, category, segment) {
     }
   }
 
-  userPrompt += '\n\nGenerate a complete battle card analysis (WITHOUT the strategy section — omit the "strategy" key entirely). All competitors must be REAL brands competing in this exact category in India. For any metric you cannot verify, use "Data unavailable" — NEVER fabricate numbers.';
+  userPrompt += '\n\nGenerate a complete battle card analysis (WITHOUT the strategy section — omit the "strategy" key entirely). All competitors must be REAL brands competing in this exact category in India. Provide estimated values for ALL metrics — use your brand knowledge, social media benchmarks, and Indian D2C category norms. NEVER return "Data unavailable" for any field. Mark confidence as "estimated" where you infer from benchmarks.';
 
   // Step 3: Calling AI
   if (window._battleLoaderStep) window._battleLoaderStep(3, 40);
