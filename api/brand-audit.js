@@ -24,9 +24,20 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'Missing required fields: brandName or userPrompt' });
     }
 
+    // Fetch website content if URLs provided
+    let siteContent = '';
+    if (urls && urls.length) {
+      try {
+        const siteData = await fetchBrandSite(urls.slice(0, 2));
+        if (siteData) siteContent = siteData;
+      } catch(e) {
+        console.warn('Website fetch failed:', e.message);
+      }
+    }
+
     // Build the prompt if not provided directly
     const system = systemPrompt || buildSystemPrompt();
-    const user = userPrompt || buildUserPrompt(brandName, category, segment, urls);
+    const user = userPrompt || buildUserPrompt(brandName, category, segment, urls, siteContent);
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 55000); // 55s safety margin
@@ -147,11 +158,70 @@ Respond ONLY with valid JSON, no markdown, no backticks, no explanation outside 
 }`;
 }
 
-function buildUserPrompt(brandName, category, segment, urls) {
-  return `Brand: ${brandName || 'Unknown'}
+function buildUserPrompt(brandName, category, segment, urls, siteContent) {
+  let prompt = `Brand: ${brandName || 'Unknown'}
 Category: ${category || 'D2C / E-Commerce'}
 Market Segment: ${segment || 'Premium Mid-Market'}
-Website/Social URLs: ${urls && urls.length ? urls.join(', ') : 'not provided'}
+Website/Social URLs: ${urls && urls.length ? urls.join(', ') : 'not provided'}`;
 
-Produce a realistic, specific creative health check for this Indian D2C brand. Use your knowledge of this brand (if known) or infer from the category and segment. All scores, savings, and findings must be realistic for an Indian D2C brand at this stage. Reference specific Indian platforms, festivals, and content formats. Be critical where appropriate — don't inflate scores.`;
+  if (siteContent) {
+    prompt += `\n\n--- BRAND WEBSITE DATA (scraped from actual site) ---\n${siteContent}\n--- END WEBSITE DATA ---\n`;
+    prompt += `\nUse the website data above to understand what this brand actually sells, their positioning, categories, and pricing. Ground your analysis in this real data.`;
+  } else {
+    prompt += `\n\nNote: Website could not be fetched. For brand-specific metrics you cannot verify, mark confidence as "low" and note the limitation.`;
+  }
+
+  prompt += `\n\nProduce a realistic, specific creative health check for this Indian D2C brand. Use your knowledge of this brand (if known) or infer from the category and segment. All scores, savings, and findings must be realistic for an Indian D2C brand at this stage. Reference specific Indian platforms, festivals, and content formats. Be critical where appropriate — don't inflate scores. NEVER fabricate specific numbers — if you don't know, say so in your methodology notes.`;
+
+  return prompt;
+}
+
+async function fetchBrandSite(urls) {
+  const results = [];
+  for (const url of urls) {
+    try {
+      let targetUrl = url.trim();
+      if (!targetUrl.startsWith('http')) targetUrl = 'https://' + targetUrl;
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+
+      const response = await fetch(targetUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; FyndStudio/1.0; Brand Analyzer)',
+          'Accept': 'text/html'
+        },
+        signal: controller.signal,
+        redirect: 'follow'
+      });
+
+      clearTimeout(timeout);
+      if (!response.ok) continue;
+
+      const html = await response.text();
+
+      // Extract key content
+      const title = (html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || '';
+      const desc = (html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([\s\S]*?)["']/i) || [])[1] || '';
+      const keywords = (html.match(/<meta[^>]*name=["']keywords["'][^>]*content=["']([\s\S]*?)["']/i) || [])[1] || '';
+
+      // Get clean text
+      const stripped = html
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .substring(0, 2000);
+
+      // Get prices
+      const prices = (html.match(/₹[\s]*[\d,]+/g) || []).slice(0, 10);
+
+      results.push(`URL: ${targetUrl}\nTitle: ${title.trim()}\nDescription: ${desc.trim()}\nKeywords: ${keywords.trim()}\nPrices found: ${prices.join(', ') || 'none'}\nPage content: ${stripped}`);
+    } catch(e) {
+      // Skip failed URLs
+    }
+  }
+  return results.length ? results.join('\n\n') : null;
+}
 }

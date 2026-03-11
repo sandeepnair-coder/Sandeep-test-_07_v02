@@ -2364,6 +2364,9 @@ footer{border-top:1px solid var(--border);padding:48px;display:flex;justify-cont
       </div><!-- /strategyContent -->
     </div>
 
+    <!-- DATA SOURCES & METHODOLOGY (Battle Card) -->
+    <div id="battleSourcesSection" style="display:none;padding:24px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:8px;margin-top:8px"></div>
+
     <!-- FINAL CTA -->
     <div style="margin-top:8px">
       <div class="cta-strip" style="background:linear-gradient(135deg,rgba(0,229,192,0.07),rgba(0,0,0,0));border-color:rgba(0,229,192,0.15)">
@@ -2726,6 +2729,7 @@ function getApiHeaders() {
 // ── CLAUDE API — DUAL MODE (brand-audit endpoint + fallback) ──
 async function callBrandAudit(brandName, category, segment, urls) {
   // Primary: dedicated brand-audit serverless function
+  // Website content will be fetched server-side in brand-audit.js
   const res = await fetch('/api/brand-audit', {
     method: 'POST',
     headers: getApiHeaders(),
@@ -2764,7 +2768,9 @@ async function callClaude(systemPrompt, userPrompt, maxTokens) {
 // ── BRAND AUDIT — FULL AI ANALYSIS ──
 const AUDIT_SYSTEM = `You are an expert Indian D2C brand creative strategist and media analyst. You analyse brands and produce a structured creative health check report. You have deep knowledge of India's D2C ecosystem, ad market benchmarks, platform dynamics (Instagram, YouTube, CTV, Q-Commerce), and the competitive landscape across fashion, beauty, FMCG, and consumer electronics.
 
-When given a brand name, category, market segment, and website URLs, you produce a realistic, data-grounded audit. Use your knowledge of the Indian D2C market to generate realistic scores, gaps, and opportunities. Be specific — name real platforms, real festivals, real content formats. Avoid generic advice.
+When given a brand name, category, market segment, and website URLs, you produce a realistic, data-grounded audit. You will be provided with scraped website content — use it to understand what the brand actually sells, their categories, pricing, and positioning. Ground all analysis in this real data.
+
+CRITICAL: NEVER fabricate or invent specific numbers. If you cannot verify a metric, set confidence to "low" and note the limitation. Use your knowledge of the Indian D2C market to generate realistic scores based on category benchmarks. Be specific — name real platforms, real festivals, real content formats. Avoid generic advice.
 
 IMPORTANT — For every score and finding, you MUST provide:
 1. A confidence level ("high" if you have direct knowledge of this brand, "medium" if inferring from category/segment, "low" if based on general assumptions)
