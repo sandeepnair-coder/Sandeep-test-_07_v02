@@ -932,9 +932,11 @@ footer{border-top:1px solid var(--border);padding:48px;display:flex;justify-cont
     </div>
     <div id="apiKeyStatus" style="font-size:12px;margin:12px 0;padding:8px 12px;border-radius:6px;display:none"></div>
     <div class="modal-actions">
-      <button class="modal-confirm" onclick="saveApiKey()">Save & Verify</button>
+      <button class="modal-confirm" onclick="saveApiKey()">Save Key</button>
+      <button class="modal-confirm" onclick="runDiagnostic()" style="background:var(--electric)">Test Connection</button>
       <button class="modal-cancel" onclick="clearApiKey()">Clear Key</button>
     </div>
+    <div id="diagnosticResults" style="display:none;margin-top:16px;padding:16px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.06);font-size:12px;line-height:1.8"></div>
     <div style="margin-top:16px;padding:12px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.06)">
       <div style="font-size:11px;color:var(--mid);line-height:1.6">
         <strong style="color:var(--paper)">How to get an API key:</strong><br>
@@ -2570,6 +2572,58 @@ function checkApiKeyOnLoad() {
     });
   }
 }
+function runDiagnostic() {
+  var el = document.getElementById('diagnosticResults');
+  el.style.display = 'block';
+  el.innerHTML = '<span style="color:var(--mid)">Running diagnostics...</span>';
+  var headers = { 'Content-Type': 'application/json' };
+  var userKey = document.getElementById('apiKeyInput').value.trim();
+  if (userKey) headers['x-user-api-key'] = userKey;
+
+  fetch('/api/health', { method: 'POST', headers: headers })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var html = '<div style="margin-bottom:8px"><strong style="color:var(--paper)">Diagnostic Report</strong></div>';
+
+      // API Key test
+      var keyTest = d.tests && d.tests.apiKey;
+      if (keyTest) {
+        html += '<div>' + (keyTest.pass ? '&#10003;' : '&#10007;') + ' <strong>API Key:</strong> '
+          + '<span style="color:' + (keyTest.pass ? 'var(--electric)' : 'var(--signal)') + '">'
+          + (keyTest.pass ? keyTest.detail : keyTest.error) + '</span></div>';
+      }
+
+      // Anthropic API test
+      var apiTest = d.tests && d.tests.anthropicApi;
+      if (apiTest) {
+        html += '<div>' + (apiTest.pass ? '&#10003;' : '&#10007;') + ' <strong>Anthropic API:</strong> '
+          + '<span style="color:' + (apiTest.pass ? 'var(--electric)' : 'var(--signal)') + '">'
+          + (apiTest.pass ? apiTest.detail + ' (model: ' + apiTest.model + ')' : apiTest.error) + '</span></div>';
+        if (!apiTest.pass && apiTest.detail) {
+          html += '<div style="margin-left:18px;color:var(--mid);font-size:11px">' + apiTest.detail + '</div>';
+        }
+        if (apiTest.pass && apiTest.usage) {
+          html += '<div style="margin-left:18px;color:var(--mid);font-size:11px">Tokens used: ' + apiTest.usage.input_tokens + ' in / ' + apiTest.usage.output_tokens + ' out</div>';
+        }
+      }
+
+      // Overall status
+      html += '<div style="margin-top:12px;padding:8px 12px;border-radius:4px;background:'
+        + (d.status === 'pass' ? 'rgba(0,255,135,0.1)' : 'rgba(255,68,68,0.1)') + ';color:'
+        + (d.status === 'pass' ? 'var(--electric)' : 'var(--signal)') + ';font-weight:600">'
+        + (d.status === 'pass' ? 'All checks passed — AI analysis is ready!' : 'Connection failed — see details above') + '</div>';
+
+      el.innerHTML = html;
+
+      if (d.status === 'pass') {
+        document.getElementById('apiKeyBanner').style.display = 'none';
+      }
+    })
+    .catch(function(err) {
+      el.innerHTML = '<span style="color:var(--signal)">&#10007; Could not reach server: ' + err.message + '</span>';
+    });
+}
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', checkApiKeyOnLoad);
 
@@ -2722,10 +2776,16 @@ async function runAnalysis() {
     if (btnText) btnText.textContent = 'Analyse My Brand';
     if (btnSpinner) btnSpinner.style.display = 'none';
 
-    let errorMsg = 'Could not fetch data. Please check your connection and try again.';
+    let errorMsg = 'Could not fetch data: ' + err.message + '. Click "Test Connection" in settings (gear icon) to diagnose.';
     if (err.message.includes('API key not configured') || err.message.includes('ANTHROPIC_API_KEY')) {
       errorMsg = 'API key not configured. Click the gear icon (top right) to add your Anthropic API key.';
       document.getElementById('apiKeyBanner').style.display = 'block';
+    } else if (err.message.includes('401') || err.message.includes('invalid') || err.message.includes('authentication')) {
+      errorMsg = 'Invalid API key. Please check your Anthropic API key at console.anthropic.com and update it in Vercel env vars.';
+    } else if (err.message.includes('429') || err.message.includes('rate') || err.message.includes('credit') || err.message.includes('billing')) {
+      errorMsg = 'Rate limited or insufficient credits. Check your Anthropic billing at console.anthropic.com/settings/billing.';
+    } else if (err.message.includes('529') || err.message.includes('overloaded')) {
+      errorMsg = 'Anthropic API is overloaded. Please try again in a few minutes.';
     } else if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
       errorMsg = 'No network connection detected. Please check your internet and try again.';
     } else if (err.message.includes('timed out')) {
