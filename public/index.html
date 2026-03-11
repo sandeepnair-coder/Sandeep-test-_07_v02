@@ -203,6 +203,25 @@ select option{background:#0a0a0a;}
 .score-fill.warn{background:var(--gold);}
 .score-fill.good{background:var(--electric);}
 .score-delta{font-size:11px;margin-top:8px;color:rgba(255,255,255,0.5);font-family:'Inter',sans-serif;font-variant-numeric:tabular-nums;}
+.confidence-badge{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;padding:3px 8px;border-radius:3px;margin-top:10px;cursor:help;}
+.confidence-badge.high{background:rgba(0,255,135,0.1);color:var(--electric);border:1px solid rgba(0,255,135,0.2);}
+.confidence-badge.medium{background:rgba(255,193,7,0.1);color:#ffc107;border:1px solid rgba(255,193,7,0.2);}
+.confidence-badge.low{background:rgba(255,68,68,0.1);color:var(--signal);border:1px solid rgba(255,68,68,0.2);}
+.confidence-dot{width:6px;height:6px;border-radius:50%;display:inline-block;}
+.confidence-badge.high .confidence-dot{background:var(--electric);}
+.confidence-badge.medium .confidence-dot{background:#ffc107;}
+.confidence-badge.low .confidence-dot{background:var(--signal);}
+.methodology-toggle{font-size:10px;color:var(--mid);cursor:pointer;margin-top:6px;display:flex;align-items:center;gap:4px;transition:color 0.2s;}
+.methodology-toggle:hover{color:var(--paper);}
+.methodology-panel{display:none;margin-top:8px;padding:10px 12px;background:rgba(255,255,255,0.03);border-radius:6px;border:1px solid rgba(255,255,255,0.06);font-size:11px;line-height:1.6;color:rgba(255,255,255,0.6);}
+.methodology-panel.open{display:block;}
+.methodology-panel strong{color:var(--paper);font-weight:600;}
+.transparency-bar{display:flex;align-items:center;gap:12px;padding:14px 24px;background:rgba(124,58,237,0.06);border:1px solid rgba(124,58,237,0.15);border-radius:8px;margin-bottom:12px;font-size:12px;color:rgba(255,255,255,0.7);}
+.transparency-bar .tb-icon{font-size:16px;flex-shrink:0;}
+.transparency-bar .tb-label{font-weight:600;color:var(--paper);margin-right:4px;}
+.source-pill{display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:4px 10px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:var(--mid);margin:3px 2px;}
+.sources-section{padding:20px 24px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:8px;margin-top:8px;margin-bottom:8px;}
+.sources-section .section-label{font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--mid);margin-bottom:12px;}
 .insights-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:8px;margin-top:8px;}
 .insight-panel{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);padding:32px;}
 .panel-title{font-family:'Inter',sans-serif;font-size:16px;font-weight:700;letter-spacing:-0.01em;margin-bottom:24px;display:flex;align-items:center;gap:8px;}
@@ -915,6 +934,48 @@ footer{border-top:1px solid var(--border);padding:48px;display:flex;justify-cont
   </div>
 </div>
 
+<!-- ── API KEY SETTINGS MODAL ── -->
+<div class="modal-backdrop" id="apiKeyModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('apiKeyModal')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <div class="modal-title">API Configuration</div>
+    <div class="modal-sub">Enter your Anthropic API key to enable live AI analysis. Your key is stored locally in your browser and never sent to our servers — it's passed directly to Anthropic's API.</div>
+    <div class="modal-field">
+      <label>Anthropic API Key</label>
+      <div style="position:relative">
+        <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-..." style="padding-right:40px" value="">
+        <button onclick="toggleApiKeyVisibility()" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--mid);cursor:pointer;padding:4px" title="Show/hide key">
+          <svg id="apiKeyEyeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+    </div>
+    <div id="apiKeyStatus" style="font-size:12px;margin:12px 0;padding:8px 12px;border-radius:6px;display:none"></div>
+    <div class="modal-actions">
+      <button class="modal-confirm" onclick="saveApiKey()">Save Key</button>
+      <button class="modal-confirm" onclick="runDiagnostic()" style="background:var(--electric)">Test Connection</button>
+      <button class="modal-cancel" onclick="clearApiKey()">Clear Key</button>
+    </div>
+    <div id="diagnosticResults" style="display:none;margin-top:16px;padding:16px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.06);font-size:12px;line-height:1.8"></div>
+    <div style="margin-top:16px;padding:12px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.06)">
+      <div style="font-size:11px;color:var(--mid);line-height:1.6">
+        <strong style="color:var(--paper)">How to get an API key:</strong><br>
+        1. Go to <span style="color:var(--electric)">console.anthropic.com</span><br>
+        2. Navigate to API Keys<br>
+        3. Create a new key and paste it above<br>
+        <span style="color:var(--signal);margin-top:6px;display:block">Your key is stored only in this browser's localStorage. It is sent as a header to our serverless proxy, which forwards it to Anthropic.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── API KEY BANNER (shown when no key configured) ── -->
+<div id="apiKeyBanner" style="display:none;position:fixed;top:60px;left:0;right:0;z-index:999;background:linear-gradient(135deg,rgba(255,68,68,0.15),rgba(255,68,68,0.05));border-bottom:1px solid rgba(255,68,68,0.3);padding:12px 24px;text-align:center;backdrop-filter:blur(10px)">
+  <span style="font-size:13px;color:rgba(255,255,255,0.85)">
+    <strong style="color:var(--signal)">API key required</strong> — Click the <span style="color:var(--electric)">gear icon</span> in the nav bar to add your Anthropic API key for live AI analysis.
+    <button onclick="openModal('apiKeyModal')" style="background:var(--signal);color:var(--ink);border:none;padding:4px 16px;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;margin-left:12px">Configure Now</button>
+  </span>
+</div>
+
 <!-- ── PDF MODAL ── -->
 <div class="modal-backdrop" id="pdfModal">
   <div class="modal">
@@ -991,6 +1052,7 @@ footer{border-top:1px solid var(--border);padding:48px;display:flex;justify-cont
     <button onclick="showPage('intel')">Creative Intel</button>
     <button onclick="showPage('battle')">Battle Cards</button>
     <button class="nav-cta" onclick="openModal('demoModal')">Book a Demo</button>
+    <button onclick="openModal('apiKeyModal')" title="API Settings" style="background:none;border:none;cursor:pointer;padding:4px 8px;color:var(--mid);transition:color 0.3s" onmouseover="this.style.color='var(--paper)'" onmouseout="this.style.color='var(--mid)'"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
   </div>
 </nav>
 
@@ -1642,12 +1704,58 @@ footer{border-top:1px solid var(--border);padding:48px;display:flex;justify-cont
       </div>
     </div>
 
+    <!-- Transparency disclaimer bar (populated by JS after analysis) -->
+    <div id="transparencyBar" class="transparency-bar" style="display:none">
+      <div class="tb-icon">&#9432;</div>
+      <div><span class="tb-label">AI-Generated Analysis</span> <span id="transparencyText">Scores are estimated from public signals and category benchmarks.</span> <span style="color:var(--electric);cursor:pointer" onclick="document.getElementById('sourcesSection').scrollIntoView({behavior:'smooth'})">View sources ↓</span></div>
+    </div>
+
     <div class="scores-grid">
-      <div class="score-card"><div class="score-label">Creative Velocity Score</div><div class="score-value danger" id="score-velocity">—</div><div class="score-bar"><div class="score-fill danger" id="bar-velocity" style="width:0%"></div></div><div class="score-delta" id="delta-velocity">—</div></div>
-      <div class="score-card"><div class="score-label">Visual Stagnation Risk</div><div class="score-value warn" id="score-stagnation">—</div><div class="score-bar"><div class="score-fill warn" id="bar-stagnation" style="width:0%"></div></div><div class="score-delta" id="delta-stagnation">—</div></div>
-      <div class="score-card"><div class="score-label">Regional Relevancy Index</div><div class="score-value warn" id="score-regional">—</div><div class="score-bar"><div class="score-fill warn" id="bar-regional" style="width:0%"></div></div><div class="score-delta" id="delta-regional">—</div></div>
-      <div class="score-card"><div class="score-label">AI Opportunity Score</div><div class="score-value danger" id="score-ai">—</div><div class="score-bar"><div class="score-fill danger" id="bar-ai" style="width:0%"></div></div><div class="score-delta" id="delta-ai">—</div></div>
-      <div class="score-card" style="border-left:2px solid var(--electric)"><div class="score-label">Platform Compliance Score</div><div class="score-value good" id="score-platform">—</div><div class="score-bar"><div class="score-fill good" id="bar-platform" style="width:0%"></div></div><div class="score-delta" id="delta-platform">—</div></div>
+      <div class="score-card">
+        <div class="score-label">Creative Velocity Score</div>
+        <div class="score-value danger" id="score-velocity">—</div>
+        <div class="score-bar"><div class="score-fill danger" id="bar-velocity" style="width:0%"></div></div>
+        <div class="score-delta" id="delta-velocity">—</div>
+        <div id="conf-velocity"></div>
+        <div class="methodology-toggle" onclick="toggleMethod('meth-velocity')">&#9662; How was this calculated?</div>
+        <div class="methodology-panel" id="meth-velocity"></div>
+      </div>
+      <div class="score-card">
+        <div class="score-label">Visual Stagnation Risk</div>
+        <div class="score-value warn" id="score-stagnation">—</div>
+        <div class="score-bar"><div class="score-fill warn" id="bar-stagnation" style="width:0%"></div></div>
+        <div class="score-delta" id="delta-stagnation">—</div>
+        <div id="conf-stagnation"></div>
+        <div class="methodology-toggle" onclick="toggleMethod('meth-stagnation')">&#9662; How was this calculated?</div>
+        <div class="methodology-panel" id="meth-stagnation"></div>
+      </div>
+      <div class="score-card">
+        <div class="score-label">Regional Relevancy Index</div>
+        <div class="score-value warn" id="score-regional">—</div>
+        <div class="score-bar"><div class="score-fill warn" id="bar-regional" style="width:0%"></div></div>
+        <div class="score-delta" id="delta-regional">—</div>
+        <div id="conf-regional"></div>
+        <div class="methodology-toggle" onclick="toggleMethod('meth-regional')">&#9662; How was this calculated?</div>
+        <div class="methodology-panel" id="meth-regional"></div>
+      </div>
+      <div class="score-card">
+        <div class="score-label">AI Opportunity Score</div>
+        <div class="score-value danger" id="score-ai">—</div>
+        <div class="score-bar"><div class="score-fill danger" id="bar-ai" style="width:0%"></div></div>
+        <div class="score-delta" id="delta-ai">—</div>
+        <div id="conf-ai"></div>
+        <div class="methodology-toggle" onclick="toggleMethod('meth-ai')">&#9662; How was this calculated?</div>
+        <div class="methodology-panel" id="meth-ai"></div>
+      </div>
+      <div class="score-card" style="border-left:2px solid var(--electric)">
+        <div class="score-label">Platform Compliance Score</div>
+        <div class="score-value good" id="score-platform">—</div>
+        <div class="score-bar"><div class="score-fill good" id="bar-platform" style="width:0%"></div></div>
+        <div class="score-delta" id="delta-platform">—</div>
+        <div id="conf-platform"></div>
+        <div class="methodology-toggle" onclick="toggleMethod('meth-platform')">&#9662; How was this calculated?</div>
+        <div class="methodology-panel" id="meth-platform"></div>
+      </div>
     </div>
 
     <div class="insights-grid">
@@ -1659,6 +1767,10 @@ footer{border-top:1px solid var(--border);padding:48px;display:flex;justify-cont
           <div class="savings-label">Based on current production scale + industry benchmarks</div>
         </div>
         <div class="savings-breakdown" id="savingsBreakdown"></div>
+        <div id="savingsMethodologyWrap" style="display:none;margin-top:16px">
+          <div class="methodology-toggle" onclick="toggleMethod('savings-methodology')">&#9662; How was this estimated?</div>
+          <div class="methodology-panel" id="savings-methodology"></div>
+        </div>
       </div>
       <div class="insight-panel">
         <div class="panel-title">Creative Risk Alerts</div>
@@ -1680,6 +1792,23 @@ footer{border-top:1px solid var(--border);padding:48px;display:flex;justify-cont
         <div class="panel-title" style="margin-bottom:24px">Competitor Benchmark</div>
         <div id="competitorBenchmark"><div style="color:var(--mid);font-size:14px">Run audit to see category benchmarks.</div></div>
       </div>
+    </div>
+
+    <!-- DATA SOURCES & METHODOLOGY SECTION -->
+    <div id="sourcesSection" class="sources-section" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+        <div>
+          <div class="section-label">Data Sources & Methodology</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px">References used to generate this analysis</div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center">
+          <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--mid)"><span class="confidence-dot" style="width:6px;height:6px;border-radius:50%;background:var(--electric);display:inline-block"></span> High confidence</div>
+          <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--mid)"><span class="confidence-dot" style="width:6px;height:6px;border-radius:50%;background:#ffc107;display:inline-block"></span> Medium</div>
+          <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--mid)"><span class="confidence-dot" style="width:6px;height:6px;border-radius:50%;background:var(--signal);display:inline-block"></span> Low</div>
+        </div>
+      </div>
+      <div id="sourcesList" style="display:flex;flex-wrap:wrap;gap:4px"></div>
+      <div id="disclaimerText" style="margin-top:16px;padding:12px 16px;background:rgba(255,193,7,0.05);border:1px solid rgba(255,193,7,0.1);border-radius:6px;font-size:11px;color:rgba(255,255,255,0.6);line-height:1.6"></div>
     </div>
 
     <div class="cta-strip">
@@ -2235,6 +2364,9 @@ footer{border-top:1px solid var(--border);padding:48px;display:flex;justify-cont
       </div><!-- /strategyContent -->
     </div>
 
+    <!-- DATA SOURCES & METHODOLOGY (Battle Card) -->
+    <div id="battleSourcesSection" style="display:none;padding:24px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:8px;margin-top:8px"></div>
+
     <!-- FINAL CTA -->
     <div style="margin-top:8px">
       <div class="cta-strip" style="background:linear-gradient(135deg,rgba(0,229,192,0.07),rgba(0,0,0,0));border-color:rgba(0,229,192,0.15)">
@@ -2469,15 +2601,138 @@ function unlockStrategy() {
   showToast('success', 'Strategy unlocked!', 'Full AI campaign strategy is now available.');
 }
 
+// ── API KEY MANAGEMENT ──
+function getStoredApiKey() {
+  return localStorage.getItem('fynd_anthropic_api_key') || '';
+}
+function saveApiKey() {
+  var key = document.getElementById('apiKeyInput').value.trim();
+  if (!key) { showApiKeyStatus('error', 'Please enter an API key.'); return; }
+  if (!key.startsWith('sk-ant-')) { showApiKeyStatus('error', 'Invalid key format. Anthropic keys start with sk-ant-'); return; }
+  showApiKeyStatus('info', 'Verifying key...');
+  // Verify by calling health endpoint with the key
+  fetch('/api/health', { headers: { 'x-user-api-key': key } })
+    .then(function() {
+      localStorage.setItem('fynd_anthropic_api_key', key);
+      showApiKeyStatus('success', 'API key saved and ready! You can now run analyses.');
+      document.getElementById('apiKeyBanner').style.display = 'none';
+      setTimeout(function() { closeModal('apiKeyModal'); }, 1500);
+    })
+    .catch(function() {
+      // Even if health check fails, save the key — it'll be validated on actual use
+      localStorage.setItem('fynd_anthropic_api_key', key);
+      showApiKeyStatus('success', 'API key saved. It will be verified when you run an analysis.');
+      document.getElementById('apiKeyBanner').style.display = 'none';
+      setTimeout(function() { closeModal('apiKeyModal'); }, 1500);
+    });
+}
+function clearApiKey() {
+  localStorage.removeItem('fynd_anthropic_api_key');
+  document.getElementById('apiKeyInput').value = '';
+  showApiKeyStatus('info', 'API key cleared.');
+  checkApiKeyOnLoad();
+}
+function showApiKeyStatus(type, msg) {
+  var el = document.getElementById('apiKeyStatus');
+  el.style.display = 'block';
+  el.textContent = msg;
+  el.style.background = type === 'success' ? 'rgba(0,255,135,0.1)' : type === 'error' ? 'rgba(255,68,68,0.1)' : 'rgba(120,90,255,0.1)';
+  el.style.color = type === 'success' ? 'var(--electric)' : type === 'error' ? 'var(--signal)' : 'var(--mid)';
+}
+function toggleApiKeyVisibility() {
+  var inp = document.getElementById('apiKeyInput');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+function checkApiKeyOnLoad() {
+  var key = getStoredApiKey();
+  if (key) {
+    document.getElementById('apiKeyBanner').style.display = 'none';
+    document.getElementById('apiKeyInput').value = key;
+  } else {
+    // Check if server has a key configured
+    fetch('/api/health').then(function(r) { return r.json(); }).then(function(d) {
+      if (d.hasApiKey) {
+        document.getElementById('apiKeyBanner').style.display = 'none';
+      } else {
+        document.getElementById('apiKeyBanner').style.display = 'block';
+      }
+    }).catch(function() {
+      document.getElementById('apiKeyBanner').style.display = 'block';
+    });
+  }
+}
+function runDiagnostic() {
+  var el = document.getElementById('diagnosticResults');
+  el.style.display = 'block';
+  el.innerHTML = '<span style="color:var(--mid)">Running diagnostics...</span>';
+  var headers = { 'Content-Type': 'application/json' };
+  var userKey = document.getElementById('apiKeyInput').value.trim();
+  if (userKey) headers['x-user-api-key'] = userKey;
+
+  fetch('/api/health', { method: 'POST', headers: headers })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var html = '<div style="margin-bottom:8px"><strong style="color:var(--paper)">Diagnostic Report</strong></div>';
+
+      // API Key test
+      var keyTest = d.tests && d.tests.apiKey;
+      if (keyTest) {
+        html += '<div>' + (keyTest.pass ? '&#10003;' : '&#10007;') + ' <strong>API Key:</strong> '
+          + '<span style="color:' + (keyTest.pass ? 'var(--electric)' : 'var(--signal)') + '">'
+          + (keyTest.pass ? keyTest.detail : keyTest.error) + '</span></div>';
+      }
+
+      // Anthropic API test
+      var apiTest = d.tests && d.tests.anthropicApi;
+      if (apiTest) {
+        html += '<div>' + (apiTest.pass ? '&#10003;' : '&#10007;') + ' <strong>Anthropic API:</strong> '
+          + '<span style="color:' + (apiTest.pass ? 'var(--electric)' : 'var(--signal)') + '">'
+          + (apiTest.pass ? apiTest.detail + ' (model: ' + apiTest.model + ')' : apiTest.error) + '</span></div>';
+        if (!apiTest.pass && apiTest.detail) {
+          html += '<div style="margin-left:18px;color:var(--mid);font-size:11px">' + apiTest.detail + '</div>';
+        }
+        if (apiTest.pass && apiTest.usage) {
+          html += '<div style="margin-left:18px;color:var(--mid);font-size:11px">Tokens used: ' + apiTest.usage.input_tokens + ' in / ' + apiTest.usage.output_tokens + ' out</div>';
+        }
+      }
+
+      // Overall status
+      html += '<div style="margin-top:12px;padding:8px 12px;border-radius:4px;background:'
+        + (d.status === 'pass' ? 'rgba(0,255,135,0.1)' : 'rgba(255,68,68,0.1)') + ';color:'
+        + (d.status === 'pass' ? 'var(--electric)' : 'var(--signal)') + ';font-weight:600">'
+        + (d.status === 'pass' ? 'All checks passed — AI analysis is ready!' : 'Connection failed — see details above') + '</div>';
+
+      el.innerHTML = html;
+
+      if (d.status === 'pass') {
+        document.getElementById('apiKeyBanner').style.display = 'none';
+      }
+    })
+    .catch(function(err) {
+      el.innerHTML = '<span style="color:var(--signal)">&#10007; Could not reach server: ' + err.message + '</span>';
+    });
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', checkApiKeyOnLoad);
+
+function getApiHeaders() {
+  var headers = { 'Content-Type': 'application/json' };
+  var key = getStoredApiKey();
+  if (key) headers['x-user-api-key'] = key;
+  return headers;
+}
+
 // ── INTEL ANALYSIS ──
 
 // ── CLAUDE API CALL ──
 // ── CLAUDE API — DUAL MODE (brand-audit endpoint + fallback) ──
 async function callBrandAudit(brandName, category, segment, urls) {
   // Primary: dedicated brand-audit serverless function
+  // Website content will be fetched server-side in brand-audit.js
   const res = await fetch('/api/brand-audit', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getApiHeaders(),
     body: JSON.stringify({ brandName, category, segment, urls })
   });
   if (!res.ok) {
@@ -2490,10 +2745,10 @@ async function callBrandAudit(brandName, category, segment, urls) {
 }
 
 async function callClaude(systemPrompt, userPrompt, maxTokens) {
-  // Fallback: generic Claude proxy (for Strategy tab etc.)
+  // Generic Claude proxy (for Battle Cards etc.)
   const res = await fetch('/api/claude', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getApiHeaders(),
     body: JSON.stringify({
       model: 'claude-sonnet-4-20250514',
       max_tokens: maxTokens || 2000,
@@ -2513,7 +2768,16 @@ async function callClaude(systemPrompt, userPrompt, maxTokens) {
 // ── BRAND AUDIT — FULL AI ANALYSIS ──
 const AUDIT_SYSTEM = `You are an expert Indian D2C brand creative strategist and media analyst. You analyse brands and produce a structured creative health check report. You have deep knowledge of India's D2C ecosystem, ad market benchmarks, platform dynamics (Instagram, YouTube, CTV, Q-Commerce), and the competitive landscape across fashion, beauty, FMCG, and consumer electronics.
 
-When given a brand name, category, market segment, and website URLs, you produce a realistic, data-grounded audit. Use your knowledge of the Indian D2C market to generate realistic scores, gaps, and opportunities. Be specific — name real platforms, real festivals, real content formats. Avoid generic advice.
+When given a brand name, category, market segment, and website URLs, you produce a realistic, data-grounded audit. You will be provided with scraped website content — use it to understand what the brand actually sells, their categories, pricing, and positioning. Ground all analysis in this real data.
+
+CRITICAL: NEVER fabricate or invent specific numbers. If you cannot verify a metric, set confidence to "low" and note the limitation. Use your knowledge of the Indian D2C market to generate realistic scores based on category benchmarks. Be specific — name real platforms, real festivals, real content formats. Avoid generic advice.
+
+IMPORTANT — For every score and finding, you MUST provide:
+1. A confidence level ("high" if you have direct knowledge of this brand, "medium" if inferring from category/segment, "low" if based on general assumptions)
+2. A methodology note explaining HOW you arrived at that specific number/finding
+3. Source references — cite the specific benchmarks, reports, or data points you used (e.g. "RedSeer D2C Report 2024", "Meta Business Suite benchmarks", "Bain & Company India D2C Report")
+
+This is critical for user trust — every data point must be traceable to a reasoning chain.
 
 Respond ONLY with valid JSON, no markdown, no backticks, no explanation outside the JSON. Use this exact structure:
 {
@@ -2524,7 +2788,15 @@ Respond ONLY with valid JSON, no markdown, no backticks, no explanation outside 
     "ai": <0-100 integer — AI adoption opportunity score; higher = more opportunity>,
     "platform": <0-100 integer — platform compliance and reach score>
   },
+  "scoreMethodology": {
+    "velocity": {"confidence": "<high|medium|low>", "method": "<1-2 sentences: how you calculated this score>", "benchmark": "<what you compared against>"},
+    "stagnation": {"confidence": "<high|medium|low>", "method": "<1-2 sentences>", "benchmark": "<comparison>"},
+    "regional": {"confidence": "<high|medium|low>", "method": "<1-2 sentences>", "benchmark": "<comparison>"},
+    "ai": {"confidence": "<high|medium|low>", "method": "<1-2 sentences>", "benchmark": "<comparison>"},
+    "platform": {"confidence": "<high|medium|low>", "method": "<1-2 sentences>", "benchmark": "<comparison>"}
+  },
   "savings": "<string like '₹45–72 Lakhs' — realistic annual savings estimate for this brand>",
+  "savingsMethodology": "<2-3 sentences explaining assumptions: team size, content volume, cost per asset, AI tool pricing used>",
   "overallGrade": "<A+|A|B+|B|C+|C|D — overall creative health>",
   "topInsight": "<one powerful sentence — the single most important finding>",
   "breakdown": [
@@ -2534,11 +2806,11 @@ Respond ONLY with valid JSON, no markdown, no backticks, no explanation outside 
     {"item": "string", "trad": "string cost", "ai": "string cost"}
   ],
   "alerts": [
-    {"type": "red", "icon": "<span style="display:inline-block;width:8px;height:8px;border-radius:50%;border:2px solid var(--signal);flex-shrink:0"></span>", "text": "<bold title>: specific finding for this brand"},
-    {"type": "yellow", "icon": "<span style="display:inline-block;width:8px;height:8px;border-radius:50%;border:2px solid var(--mid);flex-shrink:0"></span>", "text": "<bold title>: specific finding"},
-    {"type": "yellow", "icon": "<span style="display:inline-block;width:8px;height:8px;border-radius:50%;border:2px solid var(--mid);flex-shrink:0"></span>", "text": "<bold title>: specific finding"},
-    {"type": "green", "icon": "<span style="display:inline-block;width:8px;height:8px;border-radius:50%;border:2px solid var(--electric);flex-shrink:0"></span>", "text": "<bold title>: specific opportunity"},
-    {"type": "green", "icon": "<span style="display:inline-block;width:8px;height:8px;border-radius:50%;border:2px solid var(--electric);flex-shrink:0"></span>", "text": "<bold title>: specific opportunity"}
+    {"type": "red", "icon": "<span style='display:inline-block;width:8px;height:8px;border-radius:50%;border:2px solid var(--signal);flex-shrink:0'></span>", "text": "<bold title>: specific finding for this brand"},
+    {"type": "yellow", "icon": "<span style='display:inline-block;width:8px;height:8px;border-radius:50%;border:2px solid var(--mid);flex-shrink:0'></span>", "text": "<bold title>: specific finding"},
+    {"type": "yellow", "icon": "<span style='display:inline-block;width:8px;height:8px;border-radius:50%;border:2px solid var(--mid);flex-shrink:0'></span>", "text": "<bold title>: specific finding"},
+    {"type": "green", "icon": "<span style='display:inline-block;width:8px;height:8px;border-radius:50%;border:2px solid var(--electric);flex-shrink:0'></span>", "text": "<bold title>: specific opportunity"},
+    {"type": "green", "icon": "<span style='display:inline-block;width:8px;height:8px;border-radius:50%;border:2px solid var(--electric);flex-shrink:0'></span>", "text": "<bold title>: specific opportunity"}
   ],
   "regions": [
     {"name": "North India", "score": <0-100>},
@@ -2559,7 +2831,14 @@ Respond ONLY with valid JSON, no markdown, no backticks, no explanation outside 
     "categoryLeaderPosts": <integer — category leader benchmark>,
     "aiAdoptionPct": <integer — estimated current AI adoption %>,
     "categoryAvgAiPct": <integer — category average AI adoption %>
-  }
+  },
+  "dataSources": [
+    "<string — each source/report/benchmark cited, e.g. 'RedSeer India D2C Report 2024', 'Meta Business Suite category benchmarks'>",
+    "<string>",
+    "<string>",
+    "<string>"
+  ],
+  "analysisDisclaimer": "<1-2 sentences: honest statement about data limitations — e.g. 'Scores are estimated from public signals and category benchmarks. For verified metrics, connect your analytics accounts.'>"
 }`;
 
 async function runAnalysis() {
@@ -2611,9 +2890,16 @@ async function runAnalysis() {
     if (btnText) btnText.textContent = 'Analyse My Brand';
     if (btnSpinner) btnSpinner.style.display = 'none';
 
-    let errorMsg = 'Could not fetch data. Please check your connection and try again.';
+    let errorMsg = 'Could not fetch data: ' + err.message + '. Click "Test Connection" in settings (gear icon) to diagnose.';
     if (err.message.includes('API key not configured') || err.message.includes('ANTHROPIC_API_KEY')) {
-      errorMsg = 'API key not configured. Please add your ANTHROPIC_API_KEY in Vercel environment variables.';
+      errorMsg = 'API key not configured. Click the gear icon (top right) to add your Anthropic API key.';
+      document.getElementById('apiKeyBanner').style.display = 'block';
+    } else if (err.message.includes('401') || err.message.includes('invalid') || err.message.includes('authentication')) {
+      errorMsg = 'Invalid API key. Please check your Anthropic API key at console.anthropic.com and update it in Vercel env vars.';
+    } else if (err.message.includes('429') || err.message.includes('rate') || err.message.includes('credit') || err.message.includes('billing')) {
+      errorMsg = 'Rate limited or insufficient credits. Check your Anthropic billing at console.anthropic.com/settings/billing.';
+    } else if (err.message.includes('529') || err.message.includes('overloaded')) {
+      errorMsg = 'Anthropic API is overloaded. Please try again in a few minutes.';
     } else if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
       errorMsg = 'No network connection detected. Please check your internet and try again.';
     } else if (err.message.includes('timed out')) {
@@ -2652,12 +2938,20 @@ function showAnalysisError(brandName, errorMsg) {
   document.getElementById('topInsight').textContent = errorMsg;
   document.getElementById('savingsAmount').textContent = '—';
   document.getElementById('savingsBreakdown').innerHTML = '';
+  document.getElementById('transparencyBar').style.display = 'none';
+  document.getElementById('sourcesSection').style.display = 'none';
+  document.getElementById('savingsMethodologyWrap').style.display = 'none';
+  ['velocity','stagnation','regional','ai','platform'].forEach(function(k) {
+    var c = document.getElementById('conf-'+k); if(c) c.innerHTML = '';
+    var m = document.getElementById('meth-'+k); if(m) { m.innerHTML = ''; m.classList.remove('open'); }
+  });
   document.getElementById('alertList').innerHTML =
     '<div class="alert-item red" style="justify-content:center;text-align:center;padding:32px">' +
       '<div style="font-size:14px;color:rgba(255,255,255,0.7);line-height:1.7">' +
         '<strong style="font-size:16px;display:block;margin-bottom:12px">Could not fetch real-time data</strong>' +
         errorMsg + '<br><br>' +
         '<button class="btn-primary" onclick="runAnalysis()" style="margin-top:8px">Retry Analysis</button>' +
+        ' <button class="btn-primary" onclick="openModal(\'apiKeyModal\')" style="margin-top:8px;margin-left:8px;background:var(--electric)">Configure API Key</button>' +
       '</div>' +
     '</div>';
   document.getElementById('regionalGrid').innerHTML = '';
@@ -2679,6 +2973,11 @@ function showAnalysisError(brandName, errorMsg) {
   // Reset battle card data so user can't navigate to stale cards
   battleCardData = null;
   window._battleBrand = null;
+}
+
+function toggleMethod(id) {
+  var el = document.getElementById(id);
+  if (el) el.classList.toggle('open');
 }
 
 function animVal(el, target) {
@@ -2722,6 +3021,31 @@ function renderResults(brandName, category, segment, data) {
     de.textContent = s.delta;
   });
 
+  // Confidence badges + methodology panels
+  if (data.scoreMethodology) {
+    ['velocity','stagnation','regional','ai','platform'].forEach(key => {
+      var m = data.scoreMethodology[key];
+      if (!m) return;
+      var confEl = document.getElementById('conf-' + key);
+      var methEl = document.getElementById('meth-' + key);
+      if (confEl) {
+        confEl.innerHTML = '<div class="confidence-badge ' + m.confidence + '"><span class="confidence-dot"></span>' + m.confidence.toUpperCase() + ' confidence</div>';
+      }
+      if (methEl) {
+        methEl.innerHTML = '<strong>Method:</strong> ' + m.method + '<br><strong>Benchmark:</strong> ' + m.benchmark;
+      }
+    });
+  }
+
+  // Transparency bar
+  var tBar = document.getElementById('transparencyBar');
+  if (tBar) {
+    tBar.style.display = 'flex';
+    if (data.analysisDisclaimer) {
+      document.getElementById('transparencyText').textContent = data.analysisDisclaimer;
+    }
+  }
+
   // Top insight badge
   const insightEl = document.getElementById('topInsight');
   if (insightEl && data.topInsight) insightEl.textContent = data.topInsight;
@@ -2735,6 +3059,36 @@ function renderResults(brandName, category, segment, data) {
   document.getElementById('savingsBreakdown').innerHTML = data.breakdown.map(b =>
     `<div class="sb-row"><span class="sb-item">${b.item}</span><div class="sb-vals"><span class="sb-trad">${b.trad}</span><span class="sb-ai">${b.ai}</span></div></div>`
   ).join('');
+
+  // Savings methodology
+  if (data.savingsMethodology) {
+    var smWrap = document.getElementById('savingsMethodologyWrap');
+    var smPanel = document.getElementById('savings-methodology');
+    if (smWrap && smPanel) {
+      smWrap.style.display = 'block';
+      smPanel.innerHTML = '<strong>Assumptions:</strong> ' + data.savingsMethodology;
+    }
+  }
+
+  // Data sources section
+  if (data.dataSources && data.dataSources.length) {
+    var srcSection = document.getElementById('sourcesSection');
+    var srcList = document.getElementById('sourcesList');
+    if (srcSection && srcList) {
+      srcSection.style.display = 'block';
+      srcList.innerHTML = data.dataSources.map(function(s) {
+        return '<span class="source-pill">&#128218; ' + s + '</span>';
+      }).join('');
+    }
+  }
+
+  // Disclaimer
+  if (data.analysisDisclaimer) {
+    var discEl = document.getElementById('disclaimerText');
+    if (discEl) {
+      discEl.innerHTML = '&#9888; <strong>Disclaimer:</strong> ' + data.analysisDisclaimer;
+    }
+  }
 
   // Alerts — handle both string text and bold-tagged text
   document.getElementById('alertList').innerHTML = data.alerts.map(a =>
