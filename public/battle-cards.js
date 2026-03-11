@@ -97,6 +97,23 @@ function launchBattleCardGeneration(brandName, category, segment) {
     }
 
     completeStep(0);
+  }).catch(function(err) {
+    // Clear pending timers
+    stepTimers.forEach(clearTimeout);
+
+    // Close overlay and show error
+    overlay.classList.remove('show');
+
+    var errorMsg = 'Could not fetch battle card data. Please check your connection and try again.';
+    if (err.message && err.message.includes('API key')) {
+      errorMsg = 'API key not configured. Please add your ANTHROPIC_API_KEY in Vercel environment variables.';
+    } else if (err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError'))) {
+      errorMsg = 'No network connection. Please check your internet and try again.';
+    } else if (err.message && err.message.includes('timed out')) {
+      errorMsg = 'AI generation timed out. Please try again.';
+    }
+
+    showToast('error', 'Battle Card generation failed', errorMsg, 8000);
   });
 }
 
@@ -129,8 +146,10 @@ async function generateBattleCardData(brandName, category, segment) {
     renderBattleCards(battleCardData, brandName, category);
   } catch(err) {
     console.warn('Battle card generation error:', err.message);
-    window._battleBrand = brandName;
-    personalizeBattleCards();
+    // Do NOT set _battleBrand so the error state can be detected
+    battleCardData = null;
+    window._battleBrand = null;
+    throw err;
   }
 }
 
