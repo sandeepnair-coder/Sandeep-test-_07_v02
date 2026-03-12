@@ -33,31 +33,36 @@ module.exports = async function handler(req, res) {
       resolution: resolution
     });
 
-    if (!taskData || !taskData.id) {
-      return res.status(500).json({ error: 'PixelBin did not return a task ID' });
+    console.log('PixelBin create response:', JSON.stringify(taskData));
+
+    const taskId = taskData._id || taskData.id;
+    if (!taskData || !taskId) {
+      return res.status(500).json({ error: 'PixelBin did not return a task ID', response: taskData });
     }
 
     // If already completed (synchronous response)
-    if (taskData.status === 'completed' && taskData.output && taskData.output.length > 0) {
+    const imageUrl = extractImageUrl(taskData);
+    if (taskData.status === 'completed' && imageUrl) {
       return res.status(200).json({
-        image_url: taskData.output[0].image_url,
+        image_url: imageUrl,
         width: parseInt(resolution.split('x')[0], 10),
         height: parseInt(resolution.split('x')[1], 10)
       });
     }
 
     // Poll for completion
-    const result = await pollPrediction(pixelbinToken, taskData.id);
+    const result = await pollPrediction(pixelbinToken, taskId);
 
-    if (result && result.output && result.output.length > 0) {
+    const resultImageUrl = extractImageUrl(result);
+    if (resultImageUrl) {
       return res.status(200).json({
-        image_url: result.output[0].image_url,
+        image_url: resultImageUrl,
         width: parseInt(resolution.split('x')[0], 10),
         height: parseInt(resolution.split('x')[1], 10)
       });
     }
 
-    return res.status(500).json({ error: 'No image returned from PixelBin' });
+    return res.status(500).json({ error: 'No image returned from PixelBin', response: result });
 
   } catch (err) {
     console.error('PixelBin image generation error:', err.message);
@@ -83,15 +88,17 @@ async function createPrediction(apiToken, input) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000); // 15s for initial request
 
+  const encodedToken = Buffer.from(apiToken).toString('base64');
+
   try {
-    const response = await fetch('https://api.pixelbin.io/v1/predictions', {
+    const response = await fetch('https://api.pixelbin.io/service/platform/transformation/v1.0/predictions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiToken}`
+        'Authorization': `Bearer ${encodedToken}`
       },
       body: JSON.stringify({
-        model: 'nanoBanana2_generate',
+        name: 'nanoBanana2_generate',
         input: input
       }),
       signal: controller.signal
@@ -132,10 +139,11 @@ async function pollPrediction(apiToken, taskId) {
     const timeout = setTimeout(() => controller.abort(), 10000);
 
     try {
-      const response = await fetch(`https://api.pixelbin.io/v1/predictions/${taskId}`, {
+      const encodedToken = Buffer.from(apiToken).toString('base64');
+      const response = await fetch(`https://api.pixelbin.io/service/platform/transformation/v1.0/predictions/${taskId}`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${apiToken}`
+          'Authorization': `Bearer ${encodedToken}`
         },
         signal: controller.signal
       });
@@ -148,8 +156,10 @@ async function pollPrediction(apiToken, taskId) {
       }
 
       const data = await response.json();
+      console.log(`PixelBin poll attempt ${attempt + 1}, status: ${data.status}`);
 
       if (data.status === 'completed') {
+        console.log('PixelBin completed response:', JSON.stringify(data));
         return data;
       }
 
@@ -169,6 +179,22 @@ async function pollPrediction(apiToken, taskId) {
   }
 
   throw new Error('PixelBin generation did not complete in time');
+}
+
+// Extract image URL from PixelBin response (handles various response formats)
+function extractImageUrl(data) {
+  if (!data) return null;
+  // Check output array
+  if (data.output && Array.isArray(data.output) && data.output.length > 0) {
+    const first = data.output[0];
+    return first.image_url || first.url || first.image || (typeof first === 'string' ? first : null);
+  }
+  // Check direct output object
+  if (data.output && typeof data.output === 'object' && !Array.isArray(data.output)) {
+    return data.output.image_url || data.output.url || data.output.image;
+  }
+  // Check direct URL fields
+  return data.image_url || data.url || null;
 }
 
 function sleep(ms) {
