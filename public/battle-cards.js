@@ -126,12 +126,11 @@ var BATTLE_CARD_PROMPT = [
   "  \"seasonal\":[{\"title\":\"Campaign\",\"desc\":\"context\",\"opp\":\"window\"}],",
   "  \"trends\":[{\"tag\":\"rising|emerging|urgent\",\"title\":\"Trend\",\"stat\":\"+NNN%\",\"statLabel\":\"measure\",",
   "    \"desc\":\"2 sentences\",\"action\":\"action\",\"source\":\"source\"}],",
-  "  \"concepts\":[{\"title\":\"Name\",\"subtitle\":\"BRAND x THEME\",\"desc\":\"2 sentences\",\"tags\":[\"tag1\",\"tag2\",\"tag3\"],\"imagePrompt\":\"Detailed visual description for AI image generation: describe the scene, mood, colors, setting, and product placement for a campaign hero image. Be specific about visual elements. No text/logos.\"}],",
   "  \"methodology\":{\"competitorSelection\":\"how chosen\",\"metricsApproach\":\"Estimated from brand knowledge, social media benchmarks, and Indian D2C category norms\",\"limitationsNote\":\"Metrics are AI-estimated based on brand knowledge and category benchmarks; actual values may vary\"},",
   "  \"dataSources\":[\"Source 1\",\"Source 2\",\"Source 3\"]",
   "}",
   "",
-  "Counts: 4 competitors, 4 markets, 4 platforms, 4 seasonal, 4 trends, 3 concepts.",
+  "Counts: 4 competitors, 4 markets, 4 platforms, 4 seasonal, 4 trends. Do NOT include concepts or strategy.",
   "All India-specific. Keep descriptions SHORT to fit within token limits.",
   "REMEMBER: Every single metric field MUST have a real estimated value. Zero 'Data unavailable' values allowed."
 ].join("\n");
@@ -224,7 +223,7 @@ async function generateBattleCardData(brandName, category, segment) {
     }
   }
 
-  userPrompt += '\n\nGenerate a complete battle card analysis (WITHOUT the strategy section — omit the "strategy" key entirely). All competitors must be REAL brands competing in this exact category in India. Provide estimated values for ALL metrics — use your brand knowledge, social media benchmarks, and Indian D2C category norms. NEVER return "Data unavailable" for any field. Mark confidence as "estimated" where you infer from benchmarks.';
+  userPrompt += '\n\nGenerate a complete battle card analysis (WITHOUT the strategy or concepts sections — omit "strategy" and "concepts" keys entirely). All competitors must be REAL brands competing in this exact category in India. Provide estimated values for ALL metrics — use your brand knowledge, social media benchmarks, and Indian D2C category norms. NEVER return "Data unavailable" for any field. Mark confidence as "estimated" where you infer from benchmarks.';
 
   // Step 3: Calling AI
   if (window._battleLoaderStep) window._battleLoaderStep(3, 40);
@@ -397,9 +396,132 @@ function renderMarketTab(data, brandName) {
   marketTab.innerHTML = mHtml;
 }
 
-function renderConceptsTab(data, brandName) {
+// ── AI CONCEPTS — On-demand generation (separate from initial battle card) ──
+var CONCEPTS_PROMPT = [
+  "You are an expert Indian D2C brand creative strategist specializing in campaign ideation.",
+  "",
+  "Generate 3 unique, high-impact campaign concepts for the given brand.",
+  "Each concept must include a detailed imagePrompt that describes the visual for AI image generation.",
+  "",
+  "Respond ONLY with valid JSON. No markdown. No backticks.",
+  "",
+  "JSON structure:",
+  "{",
+  "  \"concepts\":[",
+  "    {\"title\":\"Campaign Name\",\"subtitle\":\"BRAND x THEME\",",
+  "     \"desc\":\"2-3 sentence description of the campaign idea, target audience, and expected impact\",",
+  "     \"tags\":[\"tag1\",\"tag2\",\"tag3\"],",
+  "     \"imagePrompt\":\"Detailed visual description for AI image generation: describe the exact scene, mood, lighting, colors, setting, people, product placement for a campaign hero image. Be very specific about visual elements — camera angle, composition, Indian cultural context, product styling. No text overlays, no logos, no watermarks.\"}",
+  "  ]",
+  "}",
+  "",
+  "Rules:",
+  "- 3 concepts, each unique in theme and approach",
+  "- All India-specific — reference Indian festivals, cities, culture, consumer behavior",
+  "- imagePrompt must be 2-3 sentences, vivid and specific enough for an AI image generator to create a photorealistic campaign visual",
+  "- Reference the brand's actual products in imagePrompt (e.g. if it's a beverage brand, show the bottle/can in the scene)",
+  "- Tags should be short (1-2 words each)"
+].join("\n");
+
+window._conceptsGenerated = false;
+
+function renderConceptsPlaceholder(brandName) {
   var conceptsTab = document.getElementById('tab-concepts');
-  if (!conceptsTab || !data.concepts) return;
+  if (!conceptsTab) return;
+
+  conceptsTab.innerHTML =
+    '<div id="conceptsGenerateView" style="position:relative">' +
+      '<div style="padding:80px 40px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:24px;background:rgba(0,229,192,0.03);border:1px solid rgba(0,229,192,0.12);border-radius:16px">' +
+        '<div style="font-size:48px;opacity:0.6"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="rgba(0,229,192,0.5)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>' +
+        '<div style="font-family:\'Inter\',sans-serif;font-size:24px;font-weight:800;color:var(--paper);letter-spacing:-0.01em">AI Campaign Concepts</div>' +
+        '<div style="font-size:15px;color:var(--mid);max-width:520px;line-height:1.7">Generate unique campaign ideas with AI-created visuals using your brand\'s actual products. Each concept includes a photorealistic campaign image generated by AI.</div>' +
+        '<button onclick="launchConceptsGeneration()" style="background:var(--electric);color:var(--ink);border:none;padding:16px 40px;border-radius:8px;font-family:\'Inter\',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.3s;letter-spacing:0.03em;text-transform:uppercase" onmouseover="this.style.opacity=\'0.9\';this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.opacity=\'1\';this.style.transform=\'none\'">Generate AI Concepts</button>' +
+        '<div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px">Uses brand data + FAL AI for image generation</div>' +
+      '</div>' +
+    '</div>' +
+    '<div id="conceptsContent" style="display:none"></div>';
+}
+
+async function launchConceptsGeneration() {
+  var brandName = window._battleBrand || brandContext.name;
+  var category = brandContext.category || 'D2C / E-Commerce';
+  var segment = brandContext.segment || 'Premium Mid-Market';
+
+  var generateView = document.getElementById('conceptsGenerateView');
+  var contentView = document.getElementById('conceptsContent');
+  if (!contentView) return;
+
+  // Show loading state
+  if (generateView) generateView.style.display = 'none';
+  contentView.style.display = 'block';
+  contentView.innerHTML =
+    '<div style="padding:80px 40px;text-align:center">' +
+      '<div class="spinner" style="display:inline-block;width:32px;height:32px;border:3px solid rgba(255,255,255,0.1);border-top-color:var(--electric);border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:24px"></div>' +
+      '<div style="font-size:16px;color:var(--mid)">Generating campaign concepts for ' + escBattle(brandName) + '...</div>' +
+      '<div style="font-size:12px;color:rgba(255,255,255,0.3);margin-top:8px">Creating concepts and AI visuals \u2014 this takes 30-60 seconds</div>' +
+    '</div>';
+
+  // Build prompt with brand context
+  var userPrompt = 'Brand: ' + brandName + '\nCategory: ' + category + '\nMarket Segment: ' + segment;
+
+  var siteContent = window._battleSiteContent;
+  if (siteContent) {
+    userPrompt += '\n\n--- BRAND WEBSITE DATA ---\n' + siteContent + '\n--- END ---';
+    userPrompt += '\nGround campaign concepts in the brand\'s actual products, positioning, and pricing from the website data above. Reference specific products in the imagePrompt.';
+  }
+
+  // Include battle card insights
+  if (battleCardData) {
+    if (battleCardData.competitors) {
+      userPrompt += '\n\nKey competitors: ' + battleCardData.competitors.map(function(c) { return c.name; }).join(', ');
+    }
+    if (battleCardData.trends) {
+      userPrompt += '\nTrending: ' + battleCardData.trends.map(function(t) { return t.title; }).join(', ');
+    }
+    if (battleCardData.seasonal) {
+      userPrompt += '\nSeasonal opportunities: ' + battleCardData.seasonal.map(function(s) { return s.title; }).join(', ');
+    }
+  }
+
+  // Include product images info for AI to reference in imagePrompt
+  if (window._battleProductImages && window._battleProductImages.length > 0) {
+    userPrompt += '\n\nThe brand has product images available. Reference the brand\'s actual products prominently in each imagePrompt — show the product being used, held, or displayed in the campaign scene.';
+  }
+
+  userPrompt += '\n\nGenerate 3 unique, compelling campaign concepts with detailed visual descriptions for AI image generation.';
+
+  try {
+    var rawText = await callClaude(CONCEPTS_PROMPT, userPrompt, 3000);
+    var cleaned = rawText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+    var conceptsData = JSON.parse(cleaned);
+
+    if (!conceptsData.concepts || !conceptsData.concepts.length) {
+      throw new Error('No concepts returned');
+    }
+
+    // Store concepts in battleCardData
+    if (!battleCardData) battleCardData = {};
+    battleCardData.concepts = conceptsData.concepts;
+
+    // Render concept cards with loading spinners for images
+    renderConceptCards(conceptsData.concepts, brandName);
+    window._conceptsGenerated = true;
+    showToast('success', 'Concepts ready!', 'AI campaign concepts generated. Creating visuals...');
+
+  } catch(err) {
+    console.warn('Concepts generation error:', err.message);
+    contentView.innerHTML =
+      '<div style="padding:40px;text-align:center;color:var(--signal)">' +
+        '<div style="font-size:16px;margin-bottom:16px">Concept generation failed</div>' +
+        '<div style="font-size:13px;color:var(--mid);margin-bottom:24px">' + escBattle(err.message) + '</div>' +
+        '<button class="btn-primary" onclick="launchConceptsGeneration()" style="background:var(--electric);color:var(--ink);border:none;padding:12px 32px;border-radius:8px;font-family:\'Inter\',sans-serif;font-size:13px;font-weight:600;cursor:pointer">Retry</button>' +
+      '</div>';
+  }
+}
+
+function renderConceptCards(concepts, brandName) {
+  var contentView = document.getElementById('conceptsContent');
+  if (!contentView) return;
 
   var cHtml = '<div style="margin-bottom:24px;font-size:14px;color:var(--mid)">AI-generated campaign concepts for <strong style="color:var(--paper)">' + escBattle(brandName) + '</strong> \u2014 tailored to your brand DNA and identified market gaps.</div>';
   cHtml += '<div class="concepts-grid">';
@@ -408,7 +530,7 @@ function renderConceptsTab(data, brandName) {
     'linear-gradient(135deg,#000000,#00FFC2)',
     'linear-gradient(135deg,#000000,#7C3AED)'
   ];
-  data.concepts.forEach(function(c, i) {
+  concepts.forEach(function(c, i) {
     var grad = c.gradient || defaultGrads[i % 3];
     cHtml += '<div class="concept-card">' +
       '<div class="concept-preview" id="conceptPreview' + i + '" style="background:' + grad + '">' +
@@ -428,10 +550,21 @@ function renderConceptsTab(data, brandName) {
     cHtml += '</div></div></div>';
   });
   cHtml += '</div>';
-  conceptsTab.innerHTML = cHtml;
+
+  // Regenerate button
+  cHtml += '<div style="text-align:center;margin-top:24px">' +
+    '<button onclick="launchConceptsGeneration()" style="background:transparent;color:var(--electric);border:1px solid rgba(0,229,192,0.3);padding:10px 24px;border-radius:6px;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:600;cursor:pointer;letter-spacing:0.05em;transition:all 0.2s" onmouseover="this.style.borderColor=\'rgba(0,229,192,0.6)\';this.style.background=\'rgba(0,229,192,0.05)\'" onmouseout="this.style.borderColor=\'rgba(0,229,192,0.3)\';this.style.background=\'transparent\'">Regenerate Concepts</button>' +
+  '</div>';
+
+  contentView.innerHTML = cHtml;
+
+  // Re-init scroll reveal
+  document.querySelectorAll('#tab-concepts .concept-card').forEach(function(el) {
+    el.classList.add('reveal', 'visible');
+  });
 
   // Generate images via FAL AI for each concept
-  generateConceptImages(data.concepts, brandName);
+  generateConceptImages(concepts, brandName);
 }
 
 // ── FAL AI Image Generation for Campaign Concepts ──
@@ -726,8 +859,8 @@ function renderStrategyTab(data, brandName, category) {
 function renderBattleCards(data, brandName, category) {
   renderCompetitorTab(data, brandName);
   renderMarketTab(data, brandName);
-  renderConceptsTab(data, brandName);
-  // Strategy tab is generated separately after email unlock — don't render here
+  renderConceptsPlaceholder(brandName);
+  // AI Concepts and Strategy tabs are generated on-demand when user clicks Generate
 
   // ── Update Hero Preview ──
   var hcpLabel = document.querySelector('.hcp-label');
