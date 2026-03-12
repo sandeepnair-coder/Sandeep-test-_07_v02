@@ -100,6 +100,65 @@ module.exports = async function handler(req, res) {
       diagnostics.status = 'fail';
     }
 
+    // Test PixelBin API connection
+    const pixelbinToken = process.env.PIXELBIN_API_TOKEN;
+    if (pixelbinToken) {
+      diagnostics.tests.pixelbinToken = { pass: true, detail: 'Token present (' + pixelbinToken.substring(0, 8) + '...)' };
+
+      try {
+        const encodedToken = Buffer.from(pixelbinToken).toString('base64');
+        const pbController = new AbortController();
+        const pbTimeout = setTimeout(() => pbController.abort(), 15000);
+
+        const pbRes = await fetch('https://api.pixelbin.io/service/platform/transformation/v1.0/predictions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${encodedToken}`
+          },
+          body: JSON.stringify({
+            name: 'nanoBanana2_generate',
+            input: { prompt: 'A simple red circle on white background', num_images: 1 }
+          }),
+          signal: pbController.signal
+        });
+
+        clearTimeout(pbTimeout);
+
+        const pbBody = await pbRes.text();
+        if (pbRes.ok) {
+          const pbData = JSON.parse(pbBody);
+          diagnostics.tests.pixelbinApi = {
+            pass: true,
+            detail: 'Prediction created successfully',
+            httpStatus: pbRes.status,
+            taskId: pbData._id || pbData.id,
+            taskStatus: pbData.status,
+            responseKeys: Object.keys(pbData)
+          };
+        } else {
+          diagnostics.tests.pixelbinApi = {
+            pass: false,
+            httpStatus: pbRes.status,
+            error: pbBody,
+            detail: pbRes.status === 401 ? 'Unauthorized — check your PIXELBIN_API_TOKEN'
+                  : pbRes.status === 403 ? 'Forbidden — token may lack permissions or wrong token type'
+                  : pbRes.status === 404 ? 'Endpoint not found — API URL may be incorrect'
+                  : 'PixelBin API error'
+          };
+        }
+      } catch (pbErr) {
+        diagnostics.tests.pixelbinApi = {
+          pass: false,
+          error: pbErr.name === 'AbortError' ? 'Connection timed out (15s)' : pbErr.message
+        };
+      }
+    } else {
+      diagnostics.tests.pixelbinToken = { pass: false, error: 'PIXELBIN_API_TOKEN not set in environment variables' };
+    }
+
+    diagnostics.status = Object.values(diagnostics.tests).every(function(t) { return t.pass; }) ? 'pass' : 'fail';
+
     return res.status(200).json(diagnostics);
   }
 
