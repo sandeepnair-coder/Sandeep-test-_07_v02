@@ -24,21 +24,29 @@ module.exports = async function handler(req, res) {
   try {
     let result;
 
+    // Try image-to-image first if product image is provided
     if (image_url) {
-      // Image-to-image: use product image as reference
-      result = await callFal(falKey, 'fal-ai/flux/dev/image-to-image', {
-        prompt: prompt,
-        image_url: image_url,
-        strength: 0.75,
-        image_size: image_size || 'landscape_16_9',
-        num_inference_steps: 28,
-        guidance_scale: 3.5,
-        num_images: 1,
-        enable_safety_checker: true
-      });
-    } else {
-      // Text-to-image: generate from prompt only
-      result = await callFal(falKey, 'fal-ai/flux/dev', {
+      try {
+        result = await callFalSync(falKey, 'fal-ai/flux/dev/image-to-image', {
+          prompt: prompt,
+          image_url: image_url,
+          strength: 0.75,
+          image_size: image_size || 'landscape_16_9',
+          num_inference_steps: 28,
+          guidance_scale: 3.5,
+          num_images: 1,
+          enable_safety_checker: true
+        });
+      } catch (imgErr) {
+        // Image-to-image failed (likely bad URL), fall back to text-to-image
+        console.warn('Image-to-image failed, falling back to text-to-image:', imgErr.message);
+        result = null;
+      }
+    }
+
+    // Text-to-image (primary path or fallback)
+    if (!result || !result.images || !result.images.length) {
+      result = await callFalSync(falKey, 'fal-ai/flux/dev', {
         prompt: prompt,
         image_size: image_size || 'landscape_16_9',
         num_inference_steps: 28,
@@ -64,68 +72,35 @@ module.exports = async function handler(req, res) {
   }
 };
 
-async function callFal(apiKey, modelId, input) {
-  // Submit the request
-  const submitRes = await fetch(`https://queue.fal.run/${modelId}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Key ${apiKey}`
-    },
-    body: JSON.stringify(input)
-  });
+// Synchronous call via fal.run — waits for result directly
+async function callFalSync(apiKey, modelId, input) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 55000); // 55s to stay within Vercel 60s limit
 
-  if (!submitRes.ok) {
-    const errBody = await submitRes.text().catch(() => '');
-    throw new Error(`FAL API error ${submitRes.status}: ${errBody}`);
-  }
-
-  const submitData = await submitRes.json();
-
-  // If we get images directly (synchronous response), return immediately
-  if (submitData.images) {
-    return submitData;
-  }
-
-  // Otherwise poll the queue
-  const requestId = submitData.request_id;
-  if (!requestId) {
-    throw new Error('No request_id returned from FAL queue');
-  }
-
-  const statusUrl = `https://queue.fal.run/${modelId}/requests/${requestId}/status`;
-  const resultUrl = `https://queue.fal.run/${modelId}/requests/${requestId}`;
-
-  // Poll for completion (max ~55s to stay within Vercel timeout)
-  const startTime = Date.now();
-  const maxWait = 55000;
-
-  while (Date.now() - startTime < maxWait) {
-    await new Promise(r => setTimeout(r, 1500));
-
-    const statusRes = await fetch(statusUrl, {
-      headers: { 'Authorization': `Key ${apiKey}` }
+  try {
+    const response = await fetch(`https://fal.run/${modelId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Key ${apiKey}`
+      },
+      body: JSON.stringify(input),
+      signal: controller.signal
     });
 
-    if (!statusRes.ok) continue;
+    clearTimeout(timeout);
 
-    const statusData = await statusRes.json();
-
-    if (statusData.status === 'COMPLETED') {
-      // Fetch the result
-      const resultRes = await fetch(resultUrl, {
-        headers: { 'Authorization': `Key ${apiKey}` }
-      });
-      if (resultRes.ok) {
-        return await resultRes.json();
-      }
-      throw new Error('Failed to fetch completed result');
+    if (!response.ok) {
+      const errBody = await response.text().catch(() => '');
+      throw new Error(`FAL API error ${response.status}: ${errBody}`);
     }
 
-    if (statusData.status === 'FAILED') {
-      throw new Error('FAL generation failed: ' + (statusData.error || 'unknown'));
+    return await response.json();
+  } catch (err) {
+    clearTimeout(timeout);
+    if (err.name === 'AbortError') {
+      throw new Error('FAL generation timed out (55s)');
     }
+    throw err;
   }
-
-  throw new Error('FAL generation timed out');
 }

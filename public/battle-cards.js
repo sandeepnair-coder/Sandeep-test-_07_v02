@@ -641,7 +641,12 @@ async function generateSingleConceptImage(concept, brandName, index, productImag
 
     if (!res.ok) {
       var errData = await res.json().catch(function() { return {}; });
-      console.warn('FAL image gen failed for concept ' + index + ':', errData.error || res.status);
+      var errMsg = errData.error || ('HTTP ' + res.status);
+      console.warn('FAL image gen failed for concept ' + index + ':', errMsg);
+      // Show error hint on first failure only
+      if (index === 0 && errMsg.indexOf('FAL_KEY') !== -1) {
+        showToast('error', 'FAL API key missing', 'Add FAL_KEY in Vercel environment variables to enable AI image generation.', 6000);
+      }
       showFallbackConcept(previewEl, concept, fallbackGrad);
       return;
     }
