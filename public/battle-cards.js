@@ -396,30 +396,72 @@ function renderMarketTab(data, brandName) {
   marketTab.innerHTML = mHtml;
 }
 
-// ── AI CONCEPTS — On-demand generation (separate from initial battle card) ──
+// ── AI CONCEPTS — Multi-Format Visual Generation ──
+// Generates 3 distinct visual types: Lifestyle Photo, Product Photoshoot, Digital Banner
+
+var VISUAL_TYPES = [
+  {
+    key: 'lifestyle',
+    label: 'Lifestyle Photo',
+    badgeClass: 'lifestyle',
+    aspectClass: 'landscape',
+    icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
+    promptSuffix: 'Lifestyle editorial photography, environmental portrait, natural setting, aspirational scene with real people using the product in daily life. Wide-angle cinematic shot, 16:9 aspect ratio, warm natural lighting, shallow depth of field, editorial magazine quality.',
+    fallbackGrad: 'linear-gradient(135deg,#09090b,#7c3aed)'
+  },
+  {
+    key: 'product',
+    label: 'Product Photoshoot',
+    badgeClass: 'product',
+    aspectClass: 'square',
+    icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>',
+    promptSuffix: 'Premium product photography, studio-lit hero shot of the product on a clean minimal surface, dramatic lighting, 1:1 square aspect ratio, high-end e-commerce quality, sharp focus on product details, subtle reflections, dark moody background.',
+    fallbackGrad: 'linear-gradient(135deg,#09090b,#00e5c0)'
+  },
+  {
+    key: 'banner',
+    label: 'Digital Banner',
+    badgeClass: 'banner',
+    aspectClass: 'banner-ratio',
+    icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="10" rx="2"/><path d="M16 3v4M8 3v4M16 17v4M8 17v4"/></svg>',
+    promptSuffix: 'Wide panoramic digital banner composition, 2.5:1 ultra-wide aspect ratio, bold visual impact, vibrant colors, campaign hero image suitable for website header or social media cover, cinematic wide-angle, striking composition with clear visual hierarchy.',
+    fallbackGrad: 'linear-gradient(135deg,#09090b,#7c3aed)'
+  }
+];
+
 var CONCEPTS_PROMPT = [
-  "You are an expert Indian D2C brand creative strategist specializing in campaign ideation.",
+  "You are an expert Indian D2C brand creative strategist specializing in campaign ideation and visual direction.",
   "",
-  "Generate 3 unique, high-impact campaign concepts for the given brand.",
-  "Each concept must include a detailed imagePrompt that describes the visual for AI image generation.",
+  "Generate a campaign concept for the given brand with THREE distinct visual assets:",
+  "1. Lifestyle Photo — shows real people using the product in an aspirational, relatable Indian setting",
+  "2. Product Photoshoot — a premium studio hero shot focusing on the product itself",
+  "3. Digital Banner — a wide panoramic campaign visual for web/social media headers",
   "",
   "Respond ONLY with valid JSON. No markdown. No backticks.",
   "",
   "JSON structure:",
   "{",
-  "  \"concepts\":[",
-  "    {\"title\":\"Campaign Name\",\"subtitle\":\"BRAND x THEME\",",
-  "     \"desc\":\"2-3 sentence description of the campaign idea, target audience, and expected impact\",",
-  "     \"tags\":[\"tag1\",\"tag2\",\"tag3\"],",
-  "     \"imagePrompt\":\"Detailed visual description for AI image generation: describe the exact scene, mood, lighting, colors, setting, people, product placement for a campaign hero image. Be very specific about visual elements — camera angle, composition, Indian cultural context, product styling. No text overlays, no logos, no watermarks.\"}",
+  "  \"campaign\":{",
+  "    \"title\":\"Campaign Name\",",
+  "    \"subtitle\":\"BRAND x THEME\",",
+  "    \"desc\":\"2-3 sentence description of the campaign idea, target audience, and expected impact\",",
+  "    \"tags\":[\"tag1\",\"tag2\",\"tag3\"]",
+  "  },",
+  "  \"visuals\":[",
+  "    {\"type\":\"lifestyle\",\"title\":\"Short visual title\",\"desc\":\"1-sentence description of this specific visual\",",
+  "     \"imagePrompt\":\"Detailed visual description for AI: exact scene, people, mood, lighting, colors, product placement in a real-world setting. Indian cultural context. No text/logos/watermarks.\"},",
+  "    {\"type\":\"product\",\"title\":\"Short visual title\",\"desc\":\"1-sentence description of this product shot\",",
+  "     \"imagePrompt\":\"Detailed product photography description: product positioning, surface, lighting setup, background, styling props. Premium e-commerce quality. No text/logos/watermarks.\"},",
+  "    {\"type\":\"banner\",\"title\":\"Short visual title\",\"desc\":\"1-sentence description of this banner visual\",",
+  "     \"imagePrompt\":\"Wide panoramic campaign visual description: composition, scene, color palette, visual impact for web banner. Bold and striking. No text/logos/watermarks.\"}",
   "  ]",
   "}",
   "",
   "Rules:",
-  "- 3 concepts, each unique in theme and approach",
+  "- ONE campaign concept with THREE distinct visual types (lifestyle, product, banner)",
   "- All India-specific — reference Indian festivals, cities, culture, consumer behavior",
-  "- imagePrompt must be 2-3 sentences, vivid and specific enough for an AI image generator to create a photorealistic campaign visual",
-  "- Reference the brand's actual products in imagePrompt (e.g. if it's a beverage brand, show the bottle/can in the scene)",
+  "- Each imagePrompt must be 2-3 sentences, vivid and specific enough for AI image generation",
+  "- Reference the brand's actual products in each imagePrompt",
   "- Tags should be short (1-2 words each)"
 ].join("\n");
 
@@ -431,12 +473,12 @@ function renderConceptsPlaceholder(brandName) {
 
   conceptsTab.innerHTML =
     '<div id="conceptsGenerateView" style="position:relative">' +
-      '<div style="padding:80px 40px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:24px;background:rgba(0,229,192,0.03);border:1px solid rgba(0,229,192,0.12);border-radius:16px">' +
+      '<div style="padding:80px 40px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:24px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg)">' +
         '<div style="font-size:48px;opacity:0.6"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="rgba(0,229,192,0.5)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>' +
-        '<div style="font-family:\'Inter\',sans-serif;font-size:24px;font-weight:800;color:var(--paper);letter-spacing:-0.01em">AI Campaign Concepts</div>' +
-        '<div style="font-size:15px;color:var(--mid);max-width:520px;line-height:1.7">Generate unique campaign ideas with AI-created visuals using your brand\'s actual products. Each concept includes a photorealistic campaign image generated by AI.</div>' +
-        '<button onclick="launchConceptsGeneration()" style="background:var(--electric);color:var(--ink);border:none;padding:16px 40px;border-radius:8px;font-family:\'Inter\',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.3s;letter-spacing:0.03em;text-transform:uppercase" onmouseover="this.style.opacity=\'0.9\';this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.opacity=\'1\';this.style.transform=\'none\'">Generate AI Concepts</button>' +
-        '<div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px">Uses brand data + PixelBin AI for image generation</div>' +
+        '<div style="font-family:\'Inter\',system-ui,sans-serif;font-size:24px;font-weight:800;color:var(--paper);letter-spacing:-0.01em">AI Campaign Visuals</div>' +
+        '<div style="font-size:15px;color:var(--mid);max-width:560px;line-height:1.7">Generate three distinct campaign assets — a <strong style="color:var(--signal)">Lifestyle Photo</strong>, a <strong style="color:var(--electric)">Product Photoshoot</strong>, and a <strong style="color:#fbbf24">Digital Banner</strong> — tailored to your brand.</div>' +
+        '<button onclick="launchConceptsGeneration()" style="background:var(--electric);color:var(--ink);border:none;padding:10px 32px;border-radius:var(--radius-sm);font-family:\'Inter\',system-ui,sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.15s;letter-spacing:0.02em;text-transform:uppercase;box-shadow:0 1px 2px rgba(0,0,0,0.3)" onmouseover="this.style.opacity=\'0.9\'" onmouseout="this.style.opacity=\'1\'">Generate AI Visuals</button>' +
+        '<div style="font-size:11px;color:var(--mid);margin-top:4px">Uses brand data + PixelBin AI for image generation</div>' +
       '</div>' +
     '</div>' +
     '<div id="conceptsContent" style="display:none"></div>';
@@ -457,8 +499,8 @@ async function launchConceptsGeneration() {
   contentView.innerHTML =
     '<div style="padding:80px 40px;text-align:center">' +
       '<div class="spinner" style="display:inline-block;width:32px;height:32px;border:3px solid rgba(255,255,255,0.1);border-top-color:var(--electric);border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:24px"></div>' +
-      '<div style="font-size:16px;color:var(--mid)">Generating campaign concepts for ' + escBattle(brandName) + '...</div>' +
-      '<div style="font-size:12px;color:rgba(255,255,255,0.3);margin-top:8px">Creating concepts and AI visuals \u2014 this takes 30-60 seconds</div>' +
+      '<div style="font-size:16px;color:var(--mid)">Generating campaign visuals for ' + escBattle(brandName) + '...</div>' +
+      '<div style="font-size:12px;color:rgba(255,255,255,0.3);margin-top:8px">Creating lifestyle photo, product shot & banner \u2014 this takes 30-60 seconds</div>' +
     '</div>';
 
   // Build prompt with brand context
@@ -467,7 +509,7 @@ async function launchConceptsGeneration() {
   var siteContent = window._battleSiteContent;
   if (siteContent) {
     userPrompt += '\n\n--- BRAND WEBSITE DATA ---\n' + siteContent + '\n--- END ---';
-    userPrompt += '\nGround campaign concepts in the brand\'s actual products, positioning, and pricing from the website data above. Reference specific products in the imagePrompt.';
+    userPrompt += '\nGround campaign concepts in the brand\'s actual products, positioning, and pricing from the website data above. Reference specific products in each imagePrompt.';
   }
 
   // Include battle card insights
@@ -483,151 +525,148 @@ async function launchConceptsGeneration() {
     }
   }
 
-  // Include product images info for AI to reference in imagePrompt
   if (window._battleProductImages && window._battleProductImages.length > 0) {
-    userPrompt += '\n\nThe brand has product images available. Reference the brand\'s actual products prominently in each imagePrompt — show the product being used, held, or displayed in the campaign scene.';
+    userPrompt += '\n\nThe brand has product images available. Reference the brand\'s actual products prominently in each imagePrompt.';
   }
 
-  userPrompt += '\n\nGenerate 3 unique, compelling campaign concepts with detailed visual descriptions for AI image generation.';
+  userPrompt += '\n\nGenerate a compelling campaign concept with three distinct visual assets (lifestyle, product, banner) with detailed prompts for AI image generation.';
 
   try {
     var rawText = await callClaude(CONCEPTS_PROMPT, userPrompt, 3000);
     var cleaned = rawText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
     var conceptsData = JSON.parse(cleaned);
 
-    if (!conceptsData.concepts || !conceptsData.concepts.length) {
-      throw new Error('No concepts returned');
+    if (!conceptsData.campaign || !conceptsData.visuals || !conceptsData.visuals.length) {
+      throw new Error('No campaign visuals returned');
     }
 
-    // Store concepts in battleCardData
+    // Store in battleCardData
     if (!battleCardData) battleCardData = {};
-    battleCardData.concepts = conceptsData.concepts;
+    battleCardData.concepts = conceptsData;
 
-    // Render concept cards with loading spinners for images
-    renderConceptCards(conceptsData.concepts, brandName);
+    // Render multi-format visual cards
+    renderConceptCards(conceptsData, brandName);
     window._conceptsGenerated = true;
-    showToast('success', 'Concepts ready!', 'AI campaign concepts generated. Creating visuals...');
+    showToast('success', 'Visuals ready!', 'AI campaign visuals generated. Creating images...');
 
   } catch(err) {
     console.warn('Concepts generation error:', err.message);
     contentView.innerHTML =
       '<div style="padding:40px;text-align:center;color:var(--signal)">' +
-        '<div style="font-size:16px;margin-bottom:16px">Concept generation failed</div>' +
+        '<div style="font-size:16px;margin-bottom:16px">Visual generation failed</div>' +
         '<div style="font-size:13px;color:var(--mid);margin-bottom:24px">' + escBattle(err.message) + '</div>' +
-        '<button class="btn-primary" onclick="launchConceptsGeneration()" style="background:var(--electric);color:var(--ink);border:none;padding:12px 32px;border-radius:8px;font-family:\'Inter\',sans-serif;font-size:13px;font-weight:600;cursor:pointer">Retry</button>' +
+        '<button class="btn-primary" onclick="launchConceptsGeneration()" style="background:var(--electric);color:var(--ink);border:none;padding:10px 24px;border-radius:var(--radius-sm);font-family:\'Inter\',system-ui,sans-serif;font-size:13px;font-weight:500;cursor:pointer">Retry</button>' +
       '</div>';
   }
 }
 
-function renderConceptCards(concepts, brandName) {
+function renderConceptCards(conceptsData, brandName) {
   var contentView = document.getElementById('conceptsContent');
   if (!contentView) return;
 
-  var cHtml = '<div style="margin-bottom:24px;font-size:14px;color:var(--mid)">AI-generated campaign concepts for <strong style="color:var(--paper)">' + escBattle(brandName) + '</strong> \u2014 tailored to your brand DNA and identified market gaps.</div>';
-  cHtml += '<div class="concepts-grid">';
-  var defaultGrads = [
-    'linear-gradient(135deg,#0a0a0a,#7C3AED)',
-    'linear-gradient(135deg,#000000,#00FFC2)',
-    'linear-gradient(135deg,#000000,#7C3AED)'
-  ];
-  concepts.forEach(function(c, i) {
-    var grad = c.gradient || defaultGrads[i % 3];
-    cHtml += '<div class="concept-card">' +
-      '<div class="concept-preview" id="conceptPreview' + i + '" style="background:' + grad + '">' +
-        '<div class="concept-preview-inner" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px">' +
-          '<div class="concept-spinner" style="width:32px;height:32px;border:3px solid rgba(255,255,255,0.1);border-top-color:var(--electric);border-radius:50%;animation:spin 0.8s linear infinite"></div>' +
-          '<div style="font-size:11px;color:rgba(255,255,255,0.5);letter-spacing:0.05em">Generating image...</div>' +
-        '</div>' +
-        '<div class="concept-ai-badge">AI GENERATED</div>' +
+  var campaign = conceptsData.campaign;
+  var visuals = conceptsData.visuals;
+
+  // Campaign header
+  var cHtml = '<div style="margin-bottom:24px">' +
+    '<div style="font-family:\'Inter\',system-ui,sans-serif;font-size:20px;font-weight:700;color:var(--paper);margin-bottom:6px">' + escBattle(campaign.title) + '</div>' +
+    '<div style="font-size:11px;color:var(--signal);letter-spacing:0.06em;text-transform:uppercase;font-weight:600;margin-bottom:10px">' + escBattle(campaign.subtitle) + '</div>' +
+    '<div style="font-size:14px;color:var(--mid);line-height:1.6;margin-bottom:12px">' + escBattle(campaign.desc) + '</div>' +
+    '<div style="display:flex;gap:6px;flex-wrap:wrap">';
+  (campaign.tags || []).forEach(function(tag) {
+    cHtml += '<span class="ctag">' + escBattle(tag) + '</span>';
+  });
+  cHtml += '</div></div>';
+
+  // Three visual cards
+  cHtml += '<div class="ai-concepts-container">';
+
+  visuals.forEach(function(visual, i) {
+    var vType = VISUAL_TYPES.find(function(vt) { return vt.key === visual.type; }) || VISUAL_TYPES[i % 3];
+
+    cHtml += '<div class="ai-concept-card">' +
+      '<div class="ai-concept-header">' +
+        '<div class="ai-concept-label">' + vType.icon + ' ' + escBattle(vType.label) + '</div>' +
+        '<span class="ai-concept-type-badge ' + vType.badgeClass + '">' + vType.key.toUpperCase() + '</span>' +
       '</div>' +
-      '<div class="concept-body">' +
-        '<div class="concept-title">' + escBattle(c.title) + '</div>' +
-        '<div class="concept-desc">' + escBattle(c.desc) + '</div>' +
-        '<div class="concept-tags">';
-    (c.tags || []).forEach(function(tag) {
-      cHtml += '<span class="ctag">' + escBattle(tag) + '</span>';
-    });
-    cHtml += '</div></div></div>';
+      '<div class="ai-concept-image-wrapper ' + vType.aspectClass + '" id="conceptPreview' + i + '">' +
+        '<div class="concept-spinner-wrap">' +
+          '<div class="spinner" style="display:inline-block;width:28px;height:28px;border:3px solid rgba(255,255,255,0.1);border-top-color:var(--electric);border-radius:50%;animation:spin 0.8s linear infinite"></div>' +
+          '<div class="spinner-label">Generating ' + escBattle(vType.label).toLowerCase() + '...</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="ai-concept-details">' +
+        '<div class="ai-concept-title">' + escBattle(visual.title) + '</div>' +
+        '<div class="ai-concept-desc">' + escBattle(visual.desc) + '</div>' +
+      '</div>' +
+    '</div>';
   });
   cHtml += '</div>';
 
   // Regenerate button
   cHtml += '<div style="text-align:center;margin-top:24px">' +
-    '<button onclick="launchConceptsGeneration()" style="background:transparent;color:var(--electric);border:1px solid rgba(0,229,192,0.3);padding:10px 24px;border-radius:6px;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:600;cursor:pointer;letter-spacing:0.05em;transition:all 0.2s" onmouseover="this.style.borderColor=\'rgba(0,229,192,0.6)\';this.style.background=\'rgba(0,229,192,0.05)\'" onmouseout="this.style.borderColor=\'rgba(0,229,192,0.3)\';this.style.background=\'transparent\'">Regenerate Concepts</button>' +
+    '<button onclick="launchConceptsGeneration()" class="btn-ghost" style="font-size:12px;padding:8px 20px;letter-spacing:0.04em">Regenerate Visuals</button>' +
   '</div>';
 
   contentView.innerHTML = cHtml;
 
   // Re-init scroll reveal
-  document.querySelectorAll('#tab-concepts .concept-card').forEach(function(el) {
+  document.querySelectorAll('#tab-concepts .ai-concept-card').forEach(function(el) {
     el.classList.add('reveal', 'visible');
   });
 
-  // Generate images via PixelBin AI for each concept
-  generateConceptImages(concepts, brandName);
+  // Generate images via PixelBin AI for each visual
+  generateConceptImages(visuals, brandName);
 }
 
-// ── PixelBin AI Image Generation for Campaign Concepts ──
+// ── PixelBin AI Image Generation for Campaign Visuals ──
 function getProductImageUrl() {
-  // Try to extract product image URL from scraped site content
-  var siteContent = window._battleSiteContent || '';
-  // Check if fetchSiteContent stored productImages
   if (window._battleProductImages && window._battleProductImages.length > 0) {
     return window._battleProductImages[0];
   }
   return null;
 }
 
-function buildConceptPrompt(concept, brandName, index) {
-  // Strong negative instruction to prevent text rendering in image
+function buildConceptPrompt(visual, brandName, index) {
   var noText = 'CRITICAL: Do NOT render any text, words, letters, brand names, logos, watermarks, or typography in the image. Pure visual scene only.';
 
-  // Use AI-generated imagePrompt if available (from Claude's battle card response)
-  if (concept.imagePrompt) {
-    return noText + ' Professional advertising campaign photography, cinematic lighting, 16:9 aspect ratio, editorial quality, shallow depth of field. ' + concept.imagePrompt;
+  var vType = VISUAL_TYPES.find(function(vt) { return vt.key === visual.type; }) || VISUAL_TYPES[index % 3];
+
+  if (visual.imagePrompt) {
+    return noText + ' ' + vType.promptSuffix + ' ' + visual.imagePrompt;
   }
 
-  var themes = [
-    'warm golden hour lighting, Indian cultural elements, vibrant and authentic, shallow depth of field',
-    'modern minimalist, clean composition, aspirational lifestyle, urban Indian setting, natural light',
-    'festive celebration, rich colors, joyful atmosphere, traditional Indian elements, bokeh background'
-  ];
-  var themeStyle = themes[index % 3];
-
-  var prompt = noText + ' Professional advertising campaign photograph, cinematic lighting, premium brand photography, 16:9 aspect ratio, high-end commercial aesthetic, ' + themeStyle + '. ';
-  prompt += 'Scene for ' + brandName + ' brand campaign. ';
-  prompt += concept.desc + ' ';
-  if (concept.tags && concept.tags.length) {
-    prompt += 'Visual mood: ' + concept.tags.join(', ') + '. ';
-  }
-  prompt += 'Photorealistic, shot on Sony A7IV, 85mm lens, f/1.8.';
-  return prompt;
+  // Fallback prompt
+  return noText + ' ' + vType.promptSuffix + ' Scene for ' + brandName + ' brand campaign. ' + (visual.desc || '') + ' Photorealistic, shot on Sony A7IV.';
 }
 
-async function generateConceptImages(concepts, brandName) {
-  var defaultGrads = [
-    'linear-gradient(135deg,#0a0a0a,#7C3AED)',
-    'linear-gradient(135deg,#000000,#00FFC2)',
-    'linear-gradient(135deg,#000000,#7C3AED)'
-  ];
-
-  // Generate all images in parallel — text-to-image only (image-to-image
-  // with OG/logo images produces text-dominated outputs)
-  var promises = concepts.map(function(concept, i) {
-    return generateSingleConceptImage(concept, brandName, i, null, defaultGrads[i % 3]);
+async function generateConceptImages(visuals, brandName) {
+  var promises = visuals.map(function(visual, i) {
+    var vType = VISUAL_TYPES.find(function(vt) { return vt.key === visual.type; }) || VISUAL_TYPES[i % 3];
+    return generateSingleConceptImage(visual, brandName, i, vType);
   });
 
   await Promise.allSettled(promises);
 }
 
-async function generateSingleConceptImage(concept, brandName, index, productImageUrl, fallbackGrad) {
-  var previewEl = document.getElementById('conceptPreview' + index);
-  if (!previewEl) return;
+async function generateSingleConceptImage(visual, brandName, index, vType) {
+  var wrapperEl = document.getElementById('conceptPreview' + index);
+  if (!wrapperEl) return;
 
-  var prompt = buildConceptPrompt(concept, brandName, index);
+  var prompt = buildConceptPrompt(visual, brandName, index);
+
+  // Map visual type to image_size for the API
+  var imageSizeMap = {
+    lifestyle: 'landscape_16_9',
+    product: 'square',
+    banner: 'landscape_16_9'
+  };
 
   try {
-    var body = { prompt: prompt };
+    var body = {
+      prompt: prompt,
+      image_size: imageSizeMap[visual.type] || 'landscape_16_9'
+    };
 
     var res = await fetch('/api/generate-image', {
       method: 'POST',
@@ -638,50 +677,42 @@ async function generateSingleConceptImage(concept, brandName, index, productImag
     if (!res.ok) {
       var errData = await res.json().catch(function() { return {}; });
       var errMsg = errData.error || ('HTTP ' + res.status);
-      console.warn('PixelBin image gen failed for concept ' + index + ':', errMsg);
-      // Show error hint on first failure only
+      console.warn('PixelBin image gen failed for visual ' + index + ' (' + visual.type + '):', errMsg);
       if (index === 0 && errMsg.indexOf('PIXELBIN_API_TOKEN') !== -1) {
         showToast('error', 'PixelBin API token missing', 'Add PIXELBIN_API_TOKEN in Vercel environment variables to enable AI image generation.', 6000);
       }
-      showFallbackConcept(previewEl, concept, fallbackGrad);
+      showFallbackConcept(wrapperEl, visual, vType);
       return;
     }
 
     var data = await res.json();
     if (data.image_url) {
-      // Replace spinner with real AI-generated image
-      previewEl.style.background = 'none';
-      previewEl.innerHTML =
-        '<img src="' + data.image_url + '" alt="' + escBattle(concept.title) + ' campaign visual" ' +
-          'style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0" ' +
-          'onerror="this.parentElement.querySelector(\'.concept-preview-inner\') || showFallbackConcept(this.parentElement,null,\'' + fallbackGrad + '\')">' +
-        '<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.7) 0%,rgba(0,0,0,0.1) 50%,transparent 100%)"></div>' +
-        '<div style="position:absolute;bottom:16px;left:16px;right:16px;z-index:1">' +
-          '<div style="font-family:\'Inter\',sans-serif;font-size:18px;font-weight:800;color:white;text-shadow:0 2px 12px rgba(0,0,0,0.9);line-height:1.2">' + escBattle(concept.title).toUpperCase() + '</div>' +
-          '<div style="font-size:9px;color:rgba(255,255,255,0.7);letter-spacing:0.12em;margin-top:4px;text-shadow:0 1px 4px rgba(0,0,0,0.8)">' + escBattle(concept.subtitle) + '</div>' +
-        '</div>' +
-        '<div class="concept-ai-badge">AI GENERATED</div>';
+      wrapperEl.innerHTML =
+        '<img class="ai-concept-image" src="' + data.image_url + '" ' +
+          'alt="' + escBattle(brandName) + ' ' + escBattle(vType.label) + '" ' +
+          'onerror="showFallbackConcept(this.parentElement,null,VISUAL_TYPES[' + index + '])">' +
+        '<div class="ai-concept-badge">AI GENERATED</div>';
     } else {
-      showFallbackConcept(previewEl, concept, fallbackGrad);
+      showFallbackConcept(wrapperEl, visual, vType);
     }
   } catch(err) {
-    console.warn('PixelBin image gen error for concept ' + index + ':', err.message);
-    showFallbackConcept(previewEl, concept, fallbackGrad);
+    console.warn('PixelBin image gen error for visual ' + index + ' (' + visual.type + '):', err.message);
+    showFallbackConcept(wrapperEl, visual, vType);
   }
 }
 
-function showFallbackConcept(previewEl, concept, grad) {
-  // Fallback to gradient + text when PixelBin is unavailable
-  previewEl.style.background = grad;
-  var title = concept ? escBattle(concept.title).toUpperCase() : '';
-  var subtitle = concept ? escBattle(concept.subtitle) : '';
-  previewEl.innerHTML =
-    '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px">' +
-      '<div style="font-size:64px">' + BATTLE_ICONS.star + '</div>' +
-      '<div style="font-family:\'Inter\',sans-serif;font-size:22px;font-weight:800;color:white;text-shadow:0 2px 20px rgba(0,0,0,0.8);text-align:center;padding:0 16px">' + title + '</div>' +
-      '<div style="font-size:8px;color:rgba(255,255,255,0.6);letter-spacing:0.15em">' + subtitle + '</div>' +
+function showFallbackConcept(wrapperEl, visual, vType) {
+  // Fallback to gradient + label when PixelBin is unavailable
+  var grad = vType ? vType.fallbackGrad : 'linear-gradient(135deg,#09090b,#7c3aed)';
+  var label = vType ? vType.label : 'Visual';
+  var title = visual ? escBattle(visual.title).toUpperCase() : label.toUpperCase();
+
+  wrapperEl.innerHTML =
+    '<div class="ai-concept-fallback" style="background:' + grad + '">' +
+      '<div class="ai-concept-fallback-icon">' + BATTLE_ICONS.star + '</div>' +
+      '<div class="ai-concept-fallback-text">' + title + '</div>' +
     '</div>' +
-    '<div class="concept-ai-badge">AI GENERATED</div>';
+    '<div class="ai-concept-badge">AI GENERATED</div>';
 }
 
 // ── OGILVY STRATEGY — Separate generation, triggered after email unlock ──
@@ -931,7 +962,7 @@ function renderBattleCards(data, brandName, category) {
   }
 
   // Re-init scroll reveal for dynamically added elements
-  document.querySelectorAll('#page-battle .comp-card, #page-battle .concept-card, #page-battle .mc-card, #page-battle .strategy-block, #page-battle .mt-card').forEach(function(el) {
+  document.querySelectorAll('#page-battle .comp-card, #page-battle .concept-card, #page-battle .ai-concept-card, #page-battle .mc-card, #page-battle .strategy-block, #page-battle .mt-card').forEach(function(el) {
     el.classList.add('reveal', 'visible');
   });
 }
