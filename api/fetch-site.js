@@ -68,6 +68,7 @@ function extractContent(html, url) {
     features: [],
     socialLinks: [],
     pricing: [],
+    productImages: [],
     rawText: ''
   };
 
@@ -126,6 +127,53 @@ function extractContent(html, url) {
     });
     content.categories = content.categories.slice(0, 30);
   }
+
+  // Extract product/hero images (OG image, product images, hero images)
+  const baseUrl = url.replace(/\/$/, '');
+  const resolveUrl = (src) => {
+    if (!src) return null;
+    if (src.startsWith('http')) return src;
+    if (src.startsWith('//')) return 'https:' + src;
+    if (src.startsWith('/')) return baseUrl + src;
+    return baseUrl + '/' + src;
+  };
+
+  // OG image (usually the best brand/product image)
+  const ogImgMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i);
+  if (ogImgMatch) content.productImages.push(resolveUrl(ogImgMatch[1]));
+
+  // Product images (common patterns in e-commerce sites)
+  const imgPatterns = [
+    /<img[^>]*class=["'][^"']*(?:product|hero|banner|featured|main)[^"']*["'][^>]*src=["']([^"']+)["']/gi,
+    /<img[^>]*src=["']([^"']+)["'][^>]*class=["'][^"']*(?:product|hero|banner|featured|main)[^"']*["']/gi,
+    /<img[^>]*data-src=["']([^"']+)["'][^>]*class=["'][^"']*(?:product|hero|banner|featured)[^"']*["']/gi
+  ];
+  imgPatterns.forEach(pattern => {
+    let m;
+    while ((m = pattern.exec(html)) !== null) {
+      const resolved = resolveUrl(m[1]);
+      if (resolved && !content.productImages.includes(resolved) && !resolved.includes('svg') && !resolved.includes('icon')) {
+        content.productImages.push(resolved);
+      }
+    }
+  });
+
+  // Fallback: large images that are likely product shots (srcset or large dimensions)
+  if (content.productImages.length < 2) {
+    const largImgs = html.match(/<img[^>]*src=["']([^"']+(?:\.jpg|\.jpeg|\.png|\.webp)[^"']*)["'][^>]*/gi);
+    if (largImgs) {
+      largImgs.slice(0, 10).forEach(tag => {
+        const srcMatch = tag.match(/src=["']([^"']+)["']/i);
+        if (srcMatch) {
+          const resolved = resolveUrl(srcMatch[1]);
+          if (resolved && !content.productImages.includes(resolved) && !resolved.includes('icon') && !resolved.includes('logo') && !resolved.includes('svg') && !resolved.includes('pixel') && !resolved.includes('tracking')) {
+            content.productImages.push(resolved);
+          }
+        }
+      });
+    }
+  }
+  content.productImages = content.productImages.slice(0, 5);
 
   // Strip HTML tags and get clean text (first 3000 chars)
   const stripped = html

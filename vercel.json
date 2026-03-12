@@ -12,6 +12,9 @@
     },
     "api/fetch-site.js": {
       "maxDuration": 15
+    },
+    "api/generate-image.js": {
+      "maxDuration": 60
     }
   },
   "rewrites": [

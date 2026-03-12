@@ -126,7 +126,7 @@ var BATTLE_CARD_PROMPT = [
   "  \"seasonal\":[{\"title\":\"Campaign\",\"desc\":\"context\",\"opp\":\"window\"}],",
   "  \"trends\":[{\"tag\":\"rising|emerging|urgent\",\"title\":\"Trend\",\"stat\":\"+NNN%\",\"statLabel\":\"measure\",",
   "    \"desc\":\"2 sentences\",\"action\":\"action\",\"source\":\"source\"}],",
-  "  \"concepts\":[{\"title\":\"Name\",\"subtitle\":\"BRAND x THEME\",\"desc\":\"2 sentences\",\"tags\":[\"tag1\",\"tag2\",\"tag3\"]}],",
+  "  \"concepts\":[{\"title\":\"Name\",\"subtitle\":\"BRAND x THEME\",\"desc\":\"2 sentences\",\"tags\":[\"tag1\",\"tag2\",\"tag3\"],\"imagePrompt\":\"Detailed visual description for AI image generation: describe the scene, mood, colors, setting, and product placement for a campaign hero image. Be specific about visual elements. No text/logos.\"}],",
   "  \"methodology\":{\"competitorSelection\":\"how chosen\",\"metricsApproach\":\"Estimated from brand knowledge, social media benchmarks, and Indian D2C category norms\",\"limitationsNote\":\"Metrics are AI-estimated based on brand knowledge and category benchmarks; actual values may vary\"},",
   "  \"dataSources\":[\"Source 1\",\"Source 2\",\"Source 3\"]",
   "}",
@@ -155,6 +155,7 @@ async function fetchSiteContent(urls) {
     var data = await res.json();
     if (!data.results || !data.results.length) return null;
     var parts = [];
+    var productImages = [];
     data.results.forEach(function(r) {
       if (r.status !== 'ok' || !r.content) return;
       var c = r.content;
@@ -167,7 +168,13 @@ async function fetchSiteContent(urls) {
       if (c.features && c.features.length) section += '\nKeywords: ' + c.features.join(', ');
       if (c.rawText) section += '\nContent: ' + c.rawText.substring(0, 2000);
       parts.push(section);
+      // Collect product images for FAL AI generation
+      if (c.productImages && c.productImages.length) {
+        productImages = productImages.concat(c.productImages);
+      }
     });
+    // Store product images globally for concept image generation
+    window._battleProductImages = productImages.slice(0, 5);
     return parts.length ? parts.join('\n\n') : null;
   } catch(e) {
     console.warn('Site fetch for battle cards failed:', e.message);
@@ -404,13 +411,12 @@ function renderConceptsTab(data, brandName) {
   data.concepts.forEach(function(c, i) {
     var grad = c.gradient || defaultGrads[i % 3];
     cHtml += '<div class="concept-card">' +
-      '<div class="concept-preview" style="background:' + grad + '">' +
-        '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px">' +
-          '<div style="font-size:64px">' + BATTLE_ICONS.star + '</div>' +
-          '<div style="font-family:\'Inter\',sans-serif;font-size:22px;font-weight:800;color:white;text-shadow:0 2px 20px rgba(0,0,0,0.8);text-align:center;padding:0 16px">' + escBattle(c.title).toUpperCase() + '</div>' +
-          '<div style="font-size:8px;color:rgba(255,255,255,0.6);letter-spacing:0.15em">' + escBattle(c.subtitle) + '</div>' +
+      '<div class="concept-preview" id="conceptPreview' + i + '" style="background:' + grad + '">' +
+        '<div class="concept-preview-inner" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px">' +
+          '<div class="concept-spinner" style="width:32px;height:32px;border:3px solid rgba(255,255,255,0.1);border-top-color:var(--electric);border-radius:50%;animation:spin 0.8s linear infinite"></div>' +
+          '<div style="font-size:11px;color:rgba(255,255,255,0.5);letter-spacing:0.05em">Generating image...</div>' +
         '</div>' +
-        '<div class="concept-ai-badge">AI Generated</div>' +
+        '<div class="concept-ai-badge">AI GENERATED</div>' +
       '</div>' +
       '<div class="concept-body">' +
         '<div class="concept-title">' + escBattle(c.title) + '</div>' +
@@ -423,6 +429,125 @@ function renderConceptsTab(data, brandName) {
   });
   cHtml += '</div>';
   conceptsTab.innerHTML = cHtml;
+
+  // Generate images via FAL AI for each concept
+  generateConceptImages(data.concepts, brandName);
+}
+
+// ── FAL AI Image Generation for Campaign Concepts ──
+function getProductImageUrl() {
+  // Try to extract product image URL from scraped site content
+  var siteContent = window._battleSiteContent || '';
+  // Check if fetchSiteContent stored productImages
+  if (window._battleProductImages && window._battleProductImages.length > 0) {
+    return window._battleProductImages[0];
+  }
+  return null;
+}
+
+function buildConceptPrompt(concept, brandName, index) {
+  // Use AI-generated imagePrompt if available (from Claude's battle card response)
+  if (concept.imagePrompt) {
+    return 'Professional advertising campaign photography, cinematic lighting, 16:9, editorial quality. ' + concept.imagePrompt;
+  }
+
+  var baseStyle = 'Professional advertising campaign visual, cinematic lighting, premium brand photography, 16:9 aspect ratio, high-end commercial aesthetic';
+  var themes = [
+    'warm golden hour lighting, Indian cultural elements, vibrant and authentic',
+    'modern minimalist, clean composition, aspirational lifestyle, urban Indian setting',
+    'festive celebration, rich colors, joyful atmosphere, traditional Indian elements'
+  ];
+  var themeStyle = themes[index % 3];
+
+  var prompt = baseStyle + ', ' + themeStyle + '. ';
+  prompt += 'Campaign: "' + concept.title + '" for ' + brandName + ' brand. ';
+  prompt += concept.desc + ' ';
+  if (concept.subtitle) {
+    prompt += 'Theme: ' + concept.subtitle + '. ';
+  }
+  if (concept.tags && concept.tags.length) {
+    prompt += 'Keywords: ' + concept.tags.join(', ') + '. ';
+  }
+  prompt += 'No text overlays, no logos, no watermarks. Photorealistic, editorial quality.';
+  return prompt;
+}
+
+async function generateConceptImages(concepts, brandName) {
+  var productImageUrl = getProductImageUrl();
+  var defaultGrads = [
+    'linear-gradient(135deg,#0a0a0a,#7C3AED)',
+    'linear-gradient(135deg,#000000,#00FFC2)',
+    'linear-gradient(135deg,#000000,#7C3AED)'
+  ];
+
+  // Generate all images in parallel
+  var promises = concepts.map(function(concept, i) {
+    return generateSingleConceptImage(concept, brandName, i, productImageUrl, defaultGrads[i % 3]);
+  });
+
+  await Promise.allSettled(promises);
+}
+
+async function generateSingleConceptImage(concept, brandName, index, productImageUrl, fallbackGrad) {
+  var previewEl = document.getElementById('conceptPreview' + index);
+  if (!previewEl) return;
+
+  var prompt = buildConceptPrompt(concept, brandName, index);
+
+  try {
+    var body = { prompt: prompt };
+    if (productImageUrl) {
+      body.image_url = productImageUrl;
+    }
+
+    var res = await fetch('/api/generate-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      var errData = await res.json().catch(function() { return {}; });
+      console.warn('FAL image gen failed for concept ' + index + ':', errData.error || res.status);
+      showFallbackConcept(previewEl, concept, fallbackGrad);
+      return;
+    }
+
+    var data = await res.json();
+    if (data.image_url) {
+      // Replace spinner with real AI-generated image
+      previewEl.style.background = 'none';
+      previewEl.innerHTML =
+        '<img src="' + data.image_url + '" alt="' + escBattle(concept.title) + ' campaign visual" ' +
+          'style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0" ' +
+          'onerror="this.parentElement.querySelector(\'.concept-preview-inner\') || showFallbackConcept(this.parentElement,null,\'' + fallbackGrad + '\')">' +
+        '<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.7) 0%,rgba(0,0,0,0.1) 50%,transparent 100%)"></div>' +
+        '<div style="position:absolute;bottom:16px;left:16px;right:16px;z-index:1">' +
+          '<div style="font-family:\'Inter\',sans-serif;font-size:18px;font-weight:800;color:white;text-shadow:0 2px 12px rgba(0,0,0,0.9);line-height:1.2">' + escBattle(concept.title).toUpperCase() + '</div>' +
+          '<div style="font-size:9px;color:rgba(255,255,255,0.7);letter-spacing:0.12em;margin-top:4px;text-shadow:0 1px 4px rgba(0,0,0,0.8)">' + escBattle(concept.subtitle) + '</div>' +
+        '</div>' +
+        '<div class="concept-ai-badge">AI GENERATED</div>';
+    } else {
+      showFallbackConcept(previewEl, concept, fallbackGrad);
+    }
+  } catch(err) {
+    console.warn('FAL image gen error for concept ' + index + ':', err.message);
+    showFallbackConcept(previewEl, concept, fallbackGrad);
+  }
+}
+
+function showFallbackConcept(previewEl, concept, grad) {
+  // Fallback to gradient + text when FAL is unavailable
+  previewEl.style.background = grad;
+  var title = concept ? escBattle(concept.title).toUpperCase() : '';
+  var subtitle = concept ? escBattle(concept.subtitle) : '';
+  previewEl.innerHTML =
+    '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px">' +
+      '<div style="font-size:64px">' + BATTLE_ICONS.star + '</div>' +
+      '<div style="font-family:\'Inter\',sans-serif;font-size:22px;font-weight:800;color:white;text-shadow:0 2px 20px rgba(0,0,0,0.8);text-align:center;padding:0 16px">' + title + '</div>' +
+      '<div style="font-size:8px;color:rgba(255,255,255,0.6);letter-spacing:0.15em">' + subtitle + '</div>' +
+    '</div>' +
+    '<div class="concept-ai-badge">AI GENERATED</div>';
 }
 
 // ── OGILVY STRATEGY — Separate generation, triggered after email unlock ──
