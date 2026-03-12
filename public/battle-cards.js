@@ -579,43 +579,42 @@ function getProductImageUrl() {
 }
 
 function buildConceptPrompt(concept, brandName, index) {
+  // Strong negative instruction to prevent text rendering in image
+  var noText = 'CRITICAL: Do NOT render any text, words, letters, brand names, logos, watermarks, or typography in the image. Pure visual scene only.';
+
   // Use AI-generated imagePrompt if available (from Claude's battle card response)
   if (concept.imagePrompt) {
-    return 'Professional advertising campaign photography, cinematic lighting, 16:9, editorial quality. ' + concept.imagePrompt;
+    return noText + ' Professional advertising campaign photography, cinematic lighting, 16:9 aspect ratio, editorial quality, shallow depth of field. ' + concept.imagePrompt;
   }
 
-  var baseStyle = 'Professional advertising campaign visual, cinematic lighting, premium brand photography, 16:9 aspect ratio, high-end commercial aesthetic';
   var themes = [
-    'warm golden hour lighting, Indian cultural elements, vibrant and authentic',
-    'modern minimalist, clean composition, aspirational lifestyle, urban Indian setting',
-    'festive celebration, rich colors, joyful atmosphere, traditional Indian elements'
+    'warm golden hour lighting, Indian cultural elements, vibrant and authentic, shallow depth of field',
+    'modern minimalist, clean composition, aspirational lifestyle, urban Indian setting, natural light',
+    'festive celebration, rich colors, joyful atmosphere, traditional Indian elements, bokeh background'
   ];
   var themeStyle = themes[index % 3];
 
-  var prompt = baseStyle + ', ' + themeStyle + '. ';
-  prompt += 'Campaign: "' + concept.title + '" for ' + brandName + ' brand. ';
+  var prompt = noText + ' Professional advertising campaign photograph, cinematic lighting, premium brand photography, 16:9 aspect ratio, high-end commercial aesthetic, ' + themeStyle + '. ';
+  prompt += 'Scene for ' + brandName + ' brand campaign. ';
   prompt += concept.desc + ' ';
-  if (concept.subtitle) {
-    prompt += 'Theme: ' + concept.subtitle + '. ';
-  }
   if (concept.tags && concept.tags.length) {
-    prompt += 'Keywords: ' + concept.tags.join(', ') + '. ';
+    prompt += 'Visual mood: ' + concept.tags.join(', ') + '. ';
   }
-  prompt += 'No text overlays, no logos, no watermarks. Photorealistic, editorial quality.';
+  prompt += 'Photorealistic, shot on Sony A7IV, 85mm lens, f/1.8.';
   return prompt;
 }
 
 async function generateConceptImages(concepts, brandName) {
-  var productImageUrl = getProductImageUrl();
   var defaultGrads = [
     'linear-gradient(135deg,#0a0a0a,#7C3AED)',
     'linear-gradient(135deg,#000000,#00FFC2)',
     'linear-gradient(135deg,#000000,#7C3AED)'
   ];
 
-  // Generate all images in parallel
+  // Generate all images in parallel — text-to-image only (image-to-image
+  // with OG/logo images produces text-dominated outputs)
   var promises = concepts.map(function(concept, i) {
-    return generateSingleConceptImage(concept, brandName, i, productImageUrl, defaultGrads[i % 3]);
+    return generateSingleConceptImage(concept, brandName, i, null, defaultGrads[i % 3]);
   });
 
   await Promise.allSettled(promises);
